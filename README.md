@@ -41,6 +41,16 @@ While it plays, the AI that helped make it shows three of its own logs:
 </tr>
 </table>
 
+### More from the channel
+<table>
+<tr>
+<td width="50%" valign="top"><a href="https://youtu.be/nQzvg4u1_Mk"><img src="https://img.youtube.com/vi/nQzvg4u1_Mk/hqdefault.jpg" alt="Global Optimization Daemon"></a><br><b><a href="https://youtu.be/nQzvg4u1_Mk">Global Optimization Daemon</a></b><br><sub>▶ Watch on YouTube</sub></td>
+<td width="50%" valign="top"><a href="https://youtu.be/j3Z7KVrXc28"><img src="https://img.youtube.com/vi/j3Z7KVrXc28/hqdefault.jpg" alt="Entroplexity"></a><br><b><a href="https://youtu.be/j3Z7KVrXc28">Entroplexity</a></b><br><sub>▶ Watch on YouTube</sub></td>
+</tr>
+</table>
+
+All songs: [**dKōan on YouTube**](https://www.youtube.com/@dKoan-hashimoto)
+
 ## In the player
 
 | Key | What it does |
