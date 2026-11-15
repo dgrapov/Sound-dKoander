@@ -47,6 +47,7 @@ function card() {
     </div>
     <p class="keys" id="sNote">${song.audio ? '' : (song.audioNote || 'This site ships the visuals and analysis only. Load your copy of the song to play it in sync.')}</p>
     <p class="keys"><kbd>Space</kbd> play · <kbd>Z</kbd> visuals only · <kbd>L</kbd> lyrics position · <kbd>C</kbd> <kbd>V</kbd> <kbd>N</kbd> consoles · <kbd>H</kbd> hide UI · <kbd>F</kbd> fullscreen</p>
+    ${song.youtube ? `<p class="keys"><a class="b" style="padding:4px 9px" href="${song.youtube}" target="_blank" rel="noopener">▶ Watch the video on YouTube</a></p>` : ''}
     ${others.length ? `<div class="songs">More: ${others.map((s) => `<a href="?song=${s.id}">${s.title}</a>`).join(' · ')}</div>` : ''}
     <p class="keys"><a class="b" style="padding:4px 9px;margin-top:6px" href="${window.SITE_REPO || '#'}" target="_blank" rel="noopener">How it works · make your own pack</a></p>
   </div></div>`;

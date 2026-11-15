@@ -36,7 +36,7 @@ While it plays, the AI that helped make it shows three of its own logs:
 - 🧠 **mind.log**, the brain: what it did while making the song, with its inner voice
 - ✦ **meta.log**, the meta: what the visuals encode and the likely impact on you
 
-[**▶ Play**](https://dgrapov.github.io/Sound-dKoander/?song=testing-your-buddha)
+[**▶ Play live**](https://dgrapov.github.io/Sound-dKoander/?song=testing-your-buddha) &nbsp;·&nbsp; [**Watch on YouTube**](https://youtu.be/K5ZKdvbFc_M)
 
 </td>
 </tr>

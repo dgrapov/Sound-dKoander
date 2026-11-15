@@ -5,6 +5,7 @@ window.SITE_SONGS = [
   "id": "testing-your-buddha",
   "title": "L ≟ NL",
   "blurb": "Peace by removing, not adding. The road is the song's own spectrogram; three consoles show what the AI saw, did and meant.",
+  "youtube": "https://youtu.be/K5ZKdvbFc_M",
   "cover": "songs/testing-your-buddha/cover.jpg",
   "audio": null
  }
