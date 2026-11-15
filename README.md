@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://dgrapov.github.io/Sound-dKoander/"><img src="songs/testing-your-buddha/cover.jpg" alt="L ≟ NL" width="100%"></a>
+  <a href="https://dgrapov.github.io/Sound-dKoander/"><img src="assets/banner.jpg" alt="Sound dKoander" width="100%"></a>
 </p>
 
 <h1 align="center">Sound dKoander</h1>
@@ -23,7 +23,7 @@ nothing is pre-rendered.
 
 <table>
 <tr>
-<td width="46%"><a href="https://dgrapov.github.io/Sound-dKoander/?song=testing-your-buddha"><img src="songs/testing-your-buddha/cover.jpg" alt="L ≟ NL"></a></td>
+<td width="50%"><a href="https://youtu.be/K5ZKdvbFc_M"><img src="songs/testing-your-buddha/shot.jpg" alt="L ≟ NL, Verse 2: the golden shape, put down on the word"></a><br><sub>▶ Verse 2: the golden shape, put down on the word. Click to watch.</sub></td>
 <td>
 
 ### L ≟ NL
@@ -36,7 +36,7 @@ While it plays, the AI that helped make it shows three of its own logs:
 - 🧠 **mind.log**, the brain: what it did while making the song, with its inner voice
 - ✦ **meta.log**, the meta: what the visuals encode and the likely impact on you
 
-[**▶ Play live**](https://dgrapov.github.io/Sound-dKoander/?song=testing-your-buddha) &nbsp;·&nbsp; [**Watch on YouTube**](https://youtu.be/K5ZKdvbFc_M)
+[**▶ Watch on YouTube**](https://youtu.be/K5ZKdvbFc_M) &nbsp;·&nbsp; [**Play it live**](https://dgrapov.github.io/Sound-dKoander/?song=testing-your-buddha)
 
 </td>
 </tr>
