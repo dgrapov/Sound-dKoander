@@ -13,7 +13,7 @@ const PROG = {
   'Intro':    ['BOOT   mind.log ........ ok', 'LOAD   concept := "peace by removing, not adding"', 'LOAD   inspo flute.wav   ; 32 s, flat, alive', 'breath()', 'JMP    verse1'],
   'Verse 1':  ['plan.write(lyrics, arrangement, seed)', 'tables++ ; sections++ ; sound = NULL', 'transcribe(flute, round=semitone)  -> WRONG', 'tuning.estimate(from=drums)  -> WRONG', 'grid.assume(16th)  -> WRONG', 'stack.push(caveats)  ; buried in a doc'],
   'Chorus 1': ['remove(motif)        ; the music gen agent heard someone else', 'remove(spoken)       ; too ironic', 'remove(title, from=song)', 'remove(steel_pan)    ; ironic again', 'keep(soul)           ; it lived in the pads', 'loss = %LOSS'],
-  'Verse 2':  ['golden := transcription(inspo)', 'upload(golden)  -> REJECTED  ; existing recording', 'bisect(layers)  -> melody', 'motif.write(new)  ; g4 a#4 g#4 f4 … d4', 'picture.down()'],
+  'Verse 2':  ['golden := transcription(inspo)', 'upload(golden)  -> REJECTED  ; a copy is still a copy', 'bisect(layers)  -> melody', 'motif.write(new)  ; g4 a#4 g#4 f4 … d4', 'picture.down()'],
   'Chorus 2': ['ahead = NULL', 'render(beat_only)  -> NO_SOUL', 'restore(pads, pulse, arp, breath)', 'walker == seeker   ; TRUE', 'GOTO here'],
   'Build':    ['hear(ears)      -> spectrogram', 'hear(thought)   -> 35 cents flat', 'hear(empty)     -> the take itself', 'asr.align(take, lyrics)  -> %MATCH', 'test(tester)    -> ?', 'mu'],
   'Verse 3':  ['find(walker)  -> NOT FOUND', 'D.verdict("too ironic") ; D.verdict("go")', 'act(); observe(); act()', 'gl.clock = own   -> fade, WRONG', 'gl.clock = song  -> ok', 'road.walk(self)'],
