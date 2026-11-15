@@ -49,7 +49,7 @@ function card() {
     <p class="keys"><kbd>Space</kbd> play · <kbd>Z</kbd> visuals only · <kbd>L</kbd> lyrics position · <kbd>C</kbd> <kbd>V</kbd> <kbd>N</kbd> consoles · <kbd>H</kbd> hide UI · <kbd>F</kbd> fullscreen</p>
     ${song.youtube ? `<p class="keys"><a class="b" style="padding:4px 9px" href="${song.youtube}" target="_blank" rel="noopener">▶ Watch the video on YouTube</a> <a class="b" style="padding:4px 9px" href="https://www.youtube.com/@dKoan-hashimoto" target="_blank" rel="noopener">All songs on the channel</a></p>` : ''}
     ${others.length ? `<div class="songs">More: ${others.map((s) => `<a href="?song=${s.id}">${s.title}</a>`).join(' · ')}</div>` : ''}
-    <p class="keys"><a class="b" style="padding:4px 9px;margin-top:6px" href="${window.SITE_REPO || '#'}" target="_blank" rel="noopener">How it works · make your own pack</a></p>
+    <p class="keys"><a class="b" style="padding:4px 9px;margin-top:6px" href="${window.SITE_REPO || '#'}" target="_blank" rel="noopener">About this project</a></p>
   </div></div>`;
   document.body.appendChild(el);
   const $ = (id) => document.getElementById(id), file = $('file'), play = $('play');

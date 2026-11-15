@@ -6,9 +6,7 @@
 
 <p align="center">
   <a href="https://dgrapov.github.io/Sound-dKoander/"><b>▶ Play</b></a> &nbsp;·&nbsp;
-  <a href="docs/MAKE-A-PACK.md"><b>Make your own</b></a> &nbsp;·&nbsp;
-  <a href="docs/FORMATS.md"><b>Formats</b></a> &nbsp;·&nbsp;
-  <a href="docs/AGENT-PROMPTS.md"><b>Agent prompts</b></a>
+  <a href="https://www.youtube.com/@dKoan-hashimoto"><b>YouTube</b></a>
 </p>
 
 ---
@@ -64,36 +62,8 @@ All songs: [**dKōan on YouTube**](https://www.youtube.com/@dKoan-hashimoto)
 
 Works best in Chrome, Edge or Firefox on a desktop, with headphones.
 
-## Make one for your song
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-**[1 · Analyse](docs/MAKE-A-PACK.md)**<br>
-Turn your song into a road: a spectrogram, struck vs held, key and gaps.
-
-</td>
-<td width="33%" valign="top">
-
-**[2 · Align](docs/MAKE-A-PACK.md)**<br>
-Find every sung word in the mix and time it to your lyrics.
-
-</td>
-<td width="33%" valign="top">
-
-**[3 · Imagine](docs/AGENT-PROMPTS.md)**<br>
-Ask your own agent to hear the song and write its journey of shapes.
-
-</td>
-</tr>
-</table>
-
-Each file is described in [docs/FORMATS.md](docs/FORMATS.md). The generators are in [`tools/`](tools/), and the engine
-is in [`layers/`](layers/) and [`src/`](src/).
-
 ## Run it locally
-Clone the repo and open `index.html`, or run `python3 -m http.server` in the folder. There's no build step.
+Download the repo and open `index.html` in Chrome, Edge or Firefox.
 
 ## License
 The code is MIT ([LICENSE](LICENSE)). Songs, lyrics, cover art and console texts belong to the artist.
