@@ -3,8 +3,8 @@ window.SITE_REPO = "https://github.com/dgrapov/Sound-dKoander";
 window.SITE_SONGS = [
  {
   "id": "testing-your-buddha",
-  "title": "Testing Your Buddha",
-  "blurb": "The road is the song's own spectrogram. Peace by removing, not adding.",
+  "title": "L ≟ NL",
+  "blurb": "Peace by removing, not adding. The road is the song's own spectrogram; three consoles show what the AI saw, did and meant.",
   "cover": "songs/testing-your-buddha/cover.jpg",
   "audio": null
  }

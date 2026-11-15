@@ -1,57 +1,92 @@
-# Sound dKoander
+<p align="center">
+  <a href="https://dgrapov.github.io/Sound-dKoander/"><img src="songs/testing-your-buddha/cover.jpg" alt="L ≟ NL" width="100%"></a>
+</p>
 
-An audio-reactive visualizer for songs: each song walks its own road. The road is the song's spectrogram, the shapes
-come from what the song actually does (struck or held, its key, where the drums drop out), and the lyrics land on the
-words as they're sung.
+<h1 align="center">Sound dKoander</h1>
+<p align="center"><i>songs that walk their own road</i></p>
 
-**Open it:** https://dgrapov.github.io/Sound-dKoander/ (pick a song with `?song=<id>`).
+<p align="center">
+  <a href="https://dgrapov.github.io/Sound-dKoander/"><b>▶ Play</b></a> &nbsp;·&nbsp;
+  <a href="docs/MAKE-A-PACK.md"><b>Make your own</b></a> &nbsp;·&nbsp;
+  <a href="docs/FORMATS.md"><b>Formats</b></a> &nbsp;·&nbsp;
+  <a href="docs/AGENT-PROMPTS.md"><b>Agent prompts</b></a>
+</p>
 
-## Play a song
-1. Open the site. Press **▶ Play**. If the song isn't hosted, use **Load the song file** to play your own copy. **Preview without audio** runs the visuals on their own.
-2. Keys:
+---
 
-   | Key | What it does |
-   |---|---|
-   | Space | play / pause |
-   | Z | visuals only (Esc brings everything back) |
-   | L | lyrics position |
-   | C V N | the three consoles |
-   | H | hide UI |
-   | F | fullscreen |
-   | T | tune |
-   | E | effects |
-   | P | pad |
-   | ? | all keys |
+A live, audio-reactive visualizer from the dKōan experiments, where a person and an AI make songs together. The road
+is the song's own spectrogram, and the shapes follow what the song actually does: struck or held, which key, where
+the drums fall away. The lyrics arrive on the words as they're sung. Everything is drawn live in your browser, and
+nothing is pre-rendered.
 
-It runs in the browser on WebGL (three.js). Chrome, Edge and Firefox on a desktop work best. Phones work with fewer particles.
+## Songs
+
+<table>
+<tr>
+<td width="46%"><a href="https://dgrapov.github.io/Sound-dKoander/?song=testing-your-buddha"><img src="songs/testing-your-buddha/cover.jpg" alt="L ≟ NL"></a></td>
+<td>
+
+### L ≟ NL
+*Lose a little every day. Lose it and lose it again.*
+
+A song about peace by removing, not adding. The title is an open question in computer science, and a kōan.
+
+While it plays, the AI that helped make it shows three of its own logs:
+- 👁 **see.log**, the eye: what it hears and why each shape is on screen
+- 🧠 **mind.log**, the brain: what it did while making the song, with its inner voice
+- ✦ **meta.log**, the meta: what the visuals encode and the likely impact on you
+
+[**▶ Play**](https://dgrapov.github.io/Sound-dKoander/?song=testing-your-buddha)
+
+</td>
+</tr>
+</table>
+
+## In the player
+
+| Key | What it does |
+|:---:|---|
+| `Space` | play / pause |
+| `Z` | visuals only (`Esc` brings everything back) |
+| `L` | where the lyrics sit |
+| `C` `V` `N` | the three consoles |
+| `F` | fullscreen |
+| `T` · `E` · `P` | tune · effects · pad |
+
+Works best in Chrome, Edge or Firefox on a desktop, with headphones.
+
+## Make one for your song
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**[1 · Analyse](docs/MAKE-A-PACK.md)**<br>
+Turn your song into a road: a spectrogram, struck vs held, key and gaps.
+
+</td>
+<td width="33%" valign="top">
+
+**[2 · Align](docs/MAKE-A-PACK.md)**<br>
+Find every sung word in the mix and time it to your lyrics.
+
+</td>
+<td width="33%" valign="top">
+
+**[3 · Imagine](docs/AGENT-PROMPTS.md)**<br>
+Ask your own agent to hear the song and write its journey of shapes.
+
+</td>
+</tr>
+</table>
+
+Each file is described in [docs/FORMATS.md](docs/FORMATS.md). The generators are in [`tools/`](tools/), and the engine
+is in [`layers/`](layers/) and [`src/`](src/).
 
 ## Run it locally
-Clone the repo and open `index.html` (double-click it), or serve the folder with `python3 -m http.server`. Everything
-is plain script files, so it works from disk with no build step.
-
-## Make a pack for your own song
-A song needs five small files. [docs/FORMATS.md](docs/FORMATS.md) describes each one, and [docs/MAKE-A-PACK.md](docs/MAKE-A-PACK.md)
-walks through making them. [docs/AGENT-PROMPTS.md](docs/AGENT-PROMPTS.md) has prompts you can give your own AI agent to
-write the creative parts.
-
-| File | What it is | Made by |
-|---|---|---|
-| your audio | the song (WAV 16-bit, MP3 or OGG) | you |
-| `songs/<id>/timing.js` | sections, lines and word times | `tools/align_lyrics.py` |
-| `analysis/<id>/road.js` | the whole-song analysis: spectrogram, struck/held, key, gaps | `tools/analyze_song.py` |
-| `songs/<id>/spectra.js` | notes and hits for the cymatics and spectrum layers | `tools/spectra.py` |
-| `packs/<id>.js` | the journey: sections, shapes, scenes, colour, lyrics style, cues | you or your agent |
-
-## What's inside
-| Path | What it holds |
-|---|---|
-| `index.html` | the player |
-| `layers/` | visual layers: particles, physics attractors, cymatics, sacred geometry, fractals, typography, and the WebGL song forms (torus, Möbius, radar, road, ensō...) |
-| `src/webgl.js` | source of `layers/webgl.js` (bundle with esbuild, see `src/README.md`) |
-| `ui/` | the effect catalog, looks and the pad |
-| `songs/` | per-song data and the site's song list |
-| `tools/` | Python generators for the analysis and timing files |
+Clone the repo and open `index.html`, or run `python3 -m http.server` in the folder. There's no build step.
 
 ## License
-The engine (code) is MIT, see [LICENSE](LICENSE). Songs, lyrics, cover art and console texts in `songs/`, `packs/`
-and the song-specific layers belong to the artist and are not covered by the MIT license.
+The code is MIT ([LICENSE](LICENSE)). Songs, lyrics, cover art and console texts belong to the artist.
+
+<p align="center"><sub>dKōan Hashimoto · digital kōans · deconstruction & emergence</sub></p>
