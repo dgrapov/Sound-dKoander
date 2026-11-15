@@ -3,7 +3,6 @@
 </p>
 
 <h1 align="center">Sound dKoander</h1>
-<p align="center"><i>songs that walk their own road</i></p>
 
 <p align="center">
   <a href="https://dgrapov.github.io/Sound-dKoander/"><b>▶ Play</b></a> &nbsp;·&nbsp;
