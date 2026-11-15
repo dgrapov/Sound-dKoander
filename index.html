@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound dKoander · Live Visualizer</title>
+<style>
+  /* one dark stage: canvas fills the screen, UI floats at the edges */
+  :root { color-scheme:dark; --ink:#05060f; --panel:rgba(12,14,26,.88); --line:rgba(255,255,255,.16); --text:#dfe8ee; --muted:#8a97a3; --ember:#ff8a3d; --cyan:#3ee8e0; --green:#57f28a; }
+  html,body { margin:0; height:100%; background:var(--ink); color:var(--text); font:14px/1.4 ui-sans-serif, system-ui, "Segoe UI", sans-serif; overflow:hidden; }
+  canvas#stage, canvas#physics { position:fixed; inset:0; width:100%; height:100%; }
+  #readout { font-size:11px; color:var(--muted); margin-top:6px; font-variant-numeric:tabular-nums; }
+  #readout.hidden { display:none; }
+  #lyric.timed span { opacity:.4; }
+  #lyric.timed span.sung { opacity:.9; }
+  #overlays { position:fixed; inset:0; pointer-events:none; display:grid; place-items:center; }
+  #overlays img { position:absolute; width:min(80vmin,900px); height:auto; will-change:transform,opacity; }
+  #hud { position:fixed; left:20px; top:16px; pointer-events:none; }
+  #act { font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); }
+  #sec { font-size:22px; font-weight:600; margin-top:3px; }
+  #meters { position:fixed; right:20px; top:18px; display:grid; gap:5px; width:130px; font-size:10px; color:var(--muted); pointer-events:none; }
+  .meter { display:grid; grid-template-columns:42px 1fr; align-items:center; gap:6px; }
+  .bar { height:3px; background:rgba(255,255,255,.1); border-radius:2px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:var(--cyan); }
+  #m-order i { background:linear-gradient(90deg,var(--ember),var(--cyan)); }
+  #m-kick i { background:var(--ember); }
+  #lyric { position:fixed; left:16px; right:16px; bottom:118px; text-align:center; font-weight:300; letter-spacing:.02em; text-shadow:0 0 18px rgba(0,0,0,.95); pointer-events:none; }
+  #lyric span { display:inline-block; margin:0 .18em; transition:transform .12s, opacity .2s; opacity:.55; }
+  #lyric span.on { opacity:1; transform:scale(1.18); color:#fff; }
+  #lyric.line span { opacity:1; }
+  #dock { position:fixed; left:16px; right:16px; bottom:12px; display:grid; gap:8px; transition:opacity .3s; }
+  #dock.hidden, #tune.hidden, #fx.hidden { opacity:0; pointer-events:none; }
+  /* v1.2: minimisable panels */
+  .phead { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  .phead b { font-weight:600; }
+  #tune.mini > :not(.phead), #fx.mini > :not(.phead) { display:none; }
+  #tune.mini, #fx.mini { width:auto; min-width:140px; }
+  #dock.mini #timeline, #dock.mini #help { display:none; }
+  #dock.mini #controls { gap:5px; font-size:12px; }
+  #dock.mini #controls button, #dock.mini #controls label.btn, #dock.mini #controls select { padding:4px 8px; }
+  details.grp { border-top:1px solid var(--line); padding-top:6px; }
+  details.grp > summary { cursor:pointer; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:600; padding:2px 0 6px; }
+  details.grp > .row { margin:4px 0; }
+  .row select { width:100%; }
+  #lyricStage.place-1 .ly { top:auto; bottom:118px; transform:none; }
+  #lyricStage.place-2 .ly { top:50%; bottom:auto; transform:translateY(-50%); }
+  #lyricStage.place-3 .ly { top:11%; bottom:auto; transform:none; }
+  #lyricStage.place-4 .ly { left:4%; right:auto; max-width:40%; text-align:left !important; }
+  #lyricStage.place-5 .ly { right:4%; left:auto; max-width:40%; text-align:right !important; }
+  #lyricStage.custom .ly { top:var(--ly-y); bottom:auto; transform:translateY(-50%); }
+  #lyricStage.place-6 .ly, #lyricStage.place-7 .ly { top:50%; bottom:auto; max-height:86vh; writing-mode:vertical-rl; text-align:center; }
+  #lyricStage.place-6 .ly { left:3%; right:auto; transform:translateY(-50%) rotate(180deg); }
+  #lyricStage.place-7 .ly { right:3%; left:auto; transform:translateY(-50%); }
+  #lyricStage .ly { rotate:var(--ly-tilt, 0deg); }
+  #lyricStage .ly { text-align:var(--ly-align, center); }
+  #lyricStage { font-family:var(--ly-font, inherit); }
+  #fx { position:fixed; top:70px; left:16px; width:min(300px, calc(100vw - 32px)); max-height:calc(100% - 210px); overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; display:grid; gap:10px; transition:opacity .3s; backdrop-filter:blur(6px); }
+  #fx h3 { margin:4px 0 0; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .fxgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .fxgrid button { font-size:12px; padding:5px 6px; text-align:left; }
+  .fxgrid button.on { border-color:var(--ember); color:var(--ember); background:rgba(255,138,61,.12); }
+  .fxgrid button.cued { border-style:dashed; }
+  .frrow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:12px; color:var(--muted); }
+  .frrow input[type=number] { width:58px; }
+  #fx input[type=text], #fx input[type=number] { background:rgba(0,0,0,.35); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font:12px ui-monospace, Consolas, monospace; }
+  #frFormula { width:100%; box-sizing:border-box; }
+  #frStatus { font-size:11px; color:var(--muted); min-height:14px; }
+  #frStatus.bad { color:#ff7a85; }
+  #fxRec.rec { border-color:#ff4a5a; color:#ff6a78; }
+  #fx .chk { display:flex; gap:8px; align-items:center; font-size:12px; }
+  #fx select { width:100%; }
+  #fxCueInfo { font-size:11px; color:var(--muted); }
+  #timeline { position:relative; height:22px; display:flex; border-radius:6px; overflow:hidden; cursor:pointer; background:rgba(255,255,255,.05); }
+  #timeline div.seg { height:100%; border-right:1px solid rgba(0,0,0,.6); font-size:10px; color:rgba(255,255,255,.7); padding:4px 5px; box-sizing:border-box; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #playhead { position:absolute; top:0; bottom:0; width:2px; background:var(--ember); pointer-events:none; }
+  #controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; font-size:13px; }
+  button, label.btn, select { background:rgba(255,255,255,.08); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px 11px; font:inherit; cursor:pointer; }
+  button:hover, label.btn:hover { background:rgba(255,255,255,.16); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline:2px solid var(--cyan); outline-offset:1px; }
+  #mark { border-color:var(--ember); color:var(--ember); }
+  input[type=file] { display:none; }
+  #time { font-variant-numeric:tabular-nums; color:var(--muted); min-width:120px; text-align:center; }
+  #help { color:var(--muted); font-size:11px; text-align:center; }
+  #tune { position:fixed; top:70px; right:16px; width:min(320px, calc(100vw - 32px)); max-height:calc(100% - 210px); overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; display:grid; gap:10px; transition:opacity .3s; backdrop-filter:blur(6px); }
+  #tune h3 { margin:4px 0 0; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .row { display:grid; grid-template-columns:96px 1fr 38px; gap:8px; align-items:center; font-size:12px; }
+  .row output { font-variant-numeric:tabular-nums; color:var(--muted); text-align:right; }
+  input[type=range] { width:100%; accent-color:var(--ember); }
+  textarea { width:100%; box-sizing:border-box; height:70px; background:rgba(0,0,0,.35); color:var(--text); border:1px solid var(--line); border-radius:6px; font:11px ui-monospace, Consolas, monospace; }
+  .ov { display:grid; grid-template-columns:1fr auto auto; gap:6px; align-items:center; font-size:12px; }
+  .ov span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .small { font-size:11px; padding:3px 8px; }
+  #drop { position:fixed; inset:0; display:none; place-items:center; background:rgba(5,6,15,.7); border:3px dashed var(--ember); font-size:22px; z-index:5; }
+  /* v1.2: form layers (cymatics, geometry) and per-section lyric typography (layers/typography.js) */
+  canvas#forms, canvas#typefx { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; }
+  #lyricStage { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
+  .ly { position:absolute; left:16px; right:16px; text-align:center; font-weight:300; line-height:1.3; text-shadow:0 0 18px rgba(0,0,0,.95); }
+  .ly-low { bottom:118px; }
+  .ly-mid { top:58%; transform:translateY(-50%); }
+  .ly .w, .ly .c { display:inline-block; white-space:pre; will-change:transform,opacity; }
+  .ly .w { margin:0 .08em; }
+  .ly-mono { font-family:ui-monospace, Consolas, "Courier New", monospace; text-transform:uppercase; letter-spacing:.06em; font-weight:500; }
+  .ly-persp { perspective:520px; }
+  /* v1.4: categorised effects, tune search, change markers */
+  .fxcat { grid-column:1 / -1; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin:6px 0 0; border-bottom:1px solid var(--line); padding-bottom:2px; }
+  .fxgrid kbd, .pad kbd { font:10px ui-monospace, Consolas, monospace; padding:0 4px; border:1px solid var(--line); border-radius:4px; color:var(--muted); }
+  .fxgrid button.solo { box-shadow:0 0 0 2px var(--cyan) inset; }
+  .note { font-size:11px; color:var(--muted); line-height:1.6; }
+  .chip { display:inline-block; padding:0 6px; border:1px solid var(--line); border-radius:10px; color:var(--text); }
+  #tuneFind { background:rgba(0,0,0,.35); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:12px inherit; }
+  .row.changed label::before { content:'● '; color:var(--ember); }
+  .row label { cursor:default; user-select:none; }
+  .row.hide { display:none; }
+  .gtools { float:right; display:inline-flex; gap:4px; }
+  .gtools button { font-size:10px; padding:1px 6px; }
+  @media (prefers-reduced-motion: reduce) { #lyric span { transition:none; } }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<canvas id="physics"></canvas>
+<canvas id="forms"></canvas>
+<div id="overlays"></div>
+<div id="hud"><div id="act"></div><div id="sec"></div><div id="readout"></div></div>
+<div id="meters">
+  <div class="meter">order<div class="bar" id="m-order"><i></i></div></div>
+  <div class="meter">bass<div class="bar" id="m-bass"><i></i></div></div>
+  <div class="meter">mids<div class="bar" id="m-mid"><i></i></div></div>
+  <div class="meter">highs<div class="bar" id="m-high"><i></i></div></div>
+  <div class="meter">kick<div class="bar" id="m-kick"><i></i></div></div>
+</div>
+<div id="lyric"></div>
+<canvas id="typefx"></canvas>
+<div id="lyricStage"></div>
+
+<aside id="tune" class="hidden" aria-label="Tuning">
+  <div class="phead"><b>Tune</b><button class="small" id="tuneMin" title="Minimize / maximize">–</button></div>
+  <div id="lookBar"></div>
+  <input id="tuneFind" type="search" placeholder="Find a setting…  (● = changed · double-click a name to reset it)" aria-label="Find a setting">
+  <div id="sliders"></div>
+  <h3>Section timing</h3>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button id="copyTimes" class="small">Copy times</button>
+    <button id="applyTimes" class="small">Apply pasted times</button>
+    <button id="resetTimes" class="small">Reset to pack</button>
+  </div>
+  <textarea id="timesBox" aria-label="Section start times (JSON, seconds)"></textarea>
+  <h3>Overlays</h3>
+  <div id="ovList" style="display:grid;gap:6px"></div>
+  <div id="help2" style="color:var(--muted);font-size:11px">Drop an .svg file anywhere to add it to the current section.</div>
+  <button id="resetTune" class="small">Reset tuning</button>
+</aside>
+
+<aside id="fx" class="hidden" aria-label="Effects">
+  <div class="phead"><b>Effects</b><button class="small" id="fxMin" title="Minimize / maximize">–</button></div>
+  <label class="chk"><input type="checkbox" id="fxAuto" checked> Section effects follow the timing</label>
+  <div id="fxAutoNow" class="note"></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="fxPadBtn" class="small" title="Big playable grid of every effect, look and mode (P)">▦ Open Pad (P)</button><button id="fxOffBtn" class="small">All off (0)</button></div>
+  <h3>On demand · click on/off · alt/right-click solo</h3>
+  <div id="fxBtns" class="fxgrid"></div>
+  <h3>Fractal · Halley's method</h3>
+  <select id="frPreset" aria-label="Fractal preset"></select>
+  <input id="frFormula" type="text" spellcheck="false" aria-label="Formula in z and t" title="Formula in z and t, e.g. z^3 - 1 + t*z. Enter to apply.">
+  <div class="frrow">t from <input id="frT0" type="number" step="0.05"> to <input id="frT1" type="number" step="0.05">
+    <select id="frTMode" class="small"><option value="section">over the section</option><option value="time">looping</option><option value="pitch">sung note</option></select></div>
+  <div class="frrow">colors <select id="frColors" class="small"><option value="classic8">classic 8 (MATLAB)</option><option value="16">smooth 16</option><option value="32">smooth 32</option><option value="basins">root basins</option></select>
+    steps <input id="frIter" type="number" min="5" max="80" step="1"></div>
+  <div class="frrow">real <input id="frR0" type="number" step="0.1"> <input id="frR1" type="number" step="0.1"> imag <input id="frI0" type="number" step="0.1"> <input id="frI1" type="number" step="0.1"></div>
+  <div id="frStatus"></div>
+  <h3>Text style</h3>
+  <select id="fxStyle" aria-label="Lyric text style"></select>
+  <h3>Cues (effects on timing)</h3>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button id="fxRec" class="small" title="While on, every effect you switch is saved at the current song time and replays automatically">● Record cues</button>
+    <button id="fxCopyCues" class="small">Copy cues</button>
+    <button id="fxApplyCues" class="small">Apply pasted</button>
+    <button id="fxClearCues" class="small">Clear cues</button>
+  </div>
+  <div id="fxCueInfo"></div>
+  <textarea id="cueBox" aria-label="Effect cues (JSON)"></textarea>
+</aside>
+
+<div id="dock">
+  <div id="timeline" title="Click to jump"><div id="playhead"></div></div>
+  <div id="controls">
+    <select id="pack" aria-label="Song pack"></select>
+    <label class="btn">Load song<input id="file" type="file" accept="audio/*"></label>
+    <label class="btn" id="timingBtn">Load timing<input id="timingFile" type="file" accept=".json,application/json"></label>
+    <button id="play">Play preview</button>
+    <button id="mark" title="Press as each new section starts">Mark section ▸</button>
+    <button id="undo">◂ Undo</button>
+    <span id="time">0:00</span>
+    <button id="tuneBtn">Tune</button>
+    <button id="fxBtn">Effects</button>
+    <button id="padBtn" title="Show / hide the Pad console (P)" aria-pressed="false">▦ Pad</button>
+    <button id="dockMin" title="Minimize / maximize controls">▾</button>
+  </div>
+  <div id="help">v1.4 · Space play · P pad · [ ] looks · R roll · B blank · D demo autopilot · T tune · E effects · 1–9 J K effects · 0 all off · H hide UI · F fullscreen · ? all keys</div>
+</div>
+<div id="drop">Drop SVG to add an overlay to this section</div>
+<audio id="audio"></audio>
+
+<!-- song packs: add one <script> per song -->
+<script src="layers/physics.js"></script>
+<script src="layers/forms.js"></script>
+<script src="layers/cymatics.js"></script>
+<script src="layers/geometry.js"></script>
+<script src="layers/fractal.js"></script>
+<script src="layers/teaser.js"></script>
+<script src="layers/god2fx.js"></script>
+<script src="layers/spectrum.js"></script>
+<script src="layers/webgl.js"></script>
+<script src="layers/songforms.js"></script>
+<script src="layers/typography.js"></script>
+<script src="packs/testing-your-buddha.js"></script>
+<script src="ui/fx-catalog.js"></script>
+<script src="songs/testing-your-buddha/timing.js"></script>
+<script src="songs/index.js"></script>
+<script src="site/site.js"></script>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+const PACKS = (window.VIZ_PACKS || []);
+if (!PACKS.length) { document.body.innerHTML = '<p style="padding:24px">No song pack found. Put a pack file in <code>packs/</code> and list it in index.html.</p>'; return; }
+
+// ---------------- tuning ----------------
+// [key, label, min, max, step, default, group, kind]   kind: 'toggle' | [choice labels] | undefined (slider)
+const TUNE_DEF = [
+  ['react',    'Reactivity',     0, 2,    0.05, 1,    'Reaction'],
+  ['kickSens', 'Kick threshold', 0.5, 3,  0.05, 1.45, 'Reaction'],
+  ['beatLock', 'Beat lock (with timing)', 0, 1, 1, 0, 'Reaction', 'toggle'],
+  ['chaos',    'Chaos',          0, 2,    0.05, 1,    'Reaction'],
+  ['orderBias','Order bias',    -0.5, 0.5, 0.05, 0,   'Reaction'],
+  ['count',    'Particles',      300, 3000, 100, 1500,'Reaction'],
+  ['trail',    'Trails',         0, 1,    0.05, 0.5,  'Reaction'],
+  ['hue',      'Hue shift (all)',-180, 180, 5, 0,     'Look & color'],
+  ['lifeHue',  'Life color',     0, 360,  5, 185,     'Look & color'],
+  ['digHue',   'Digital color',  0, 360,  5, 140,     'Look & color'],
+  ['flameHue', 'Ember color',    0, 360,  5, 25,      'Look & color'],
+  ['sat',      'Saturation',     0, 100,  1, 85,      'Look & color'],
+  ['partSize', 'Particle size',  0.3, 3,  0.05, 1,    'Look & color'],
+  ['glow',     'Light glow',     0, 3,    0.05, 1,    'Look & color'],
+  ['bgHue',    'Background hue', 0, 360,  5, 232,     'Look & color'],
+  ['bgLight',  'Background light',0, 25,  0.5, 4,     'Look & color'],
+  ['ovOpacity','Overlay opacity',0, 1.5,  0.05, 1,    'Look & color'],
+  ['glOn',     'WebGL (song forms)', 0, 1, 1, 1,     'WebGL', 'toggle'],
+  ['glGlow',   'WebGL glow',     0, 2.5,  0.05, 1,    'WebGL'],
+  ['glSize',   'WebGL point size',0.3, 3, 0.05, 1,    'WebGL'],
+  ['glLyrics', 'Lyrics in the scene', 0, 1, 1, 1,   'WebGL', 'toggle'],
+  ['glLyricSize','Scene lyric size', 0.4, 2.5, 0.05, 1, 'WebGL'],
+  ['gridOn',   'Grid',           0, 1,    1, 1,       'Grid', 'toggle'],
+  ['gridType', 'Grid type',      0, 2,    1, 0,       'Grid', ['square','hex','polar']],
+  ['gridBase', 'Always visible', 0, 1,    0.05, 0,    'Grid'],
+  ['gridAmt',  'Grid strength',  0, 3,    0.05, 1,    'Grid'],
+  ['gridSize', 'Cell size',      0.04, 0.6, 0.01, 0.18,'Grid'],
+  ['gridHue',  'Grid color',     0, 360,  5, 140,     'Grid'],
+  ['lyricsOn', 'Lyrics',         0, 1,    1, 1,       'Text', 'toggle'],
+  ['typeFx',   'Text effects',   0, 1,    1, 1,       'Text', 'toggle'],
+  ['textSize', 'Text size',      0.5, 2.5, 0.05, 1,   'Text'],
+  ['textPosOn','Custom position',0, 1,    1, 0,       'Text', 'toggle'],
+  ['textY',    'Height (% from top)', 5, 95, 1, 78,   'Text'],
+  ['textAlign','Align',          0, 2,    1, 1,       'Text', ['left','center','right']],
+  ['textFont', 'Font',           0, 3,    1, 0,       'Text', ['sans light','serif','mono','rounded bold']],
+  ['textBright','Text brightness',0.2, 1, 0.05, 1,    'Text'],
+  ['place',    'Placement',      0, 7,    1, 0,       'Text', ['auto (per style)','bottom','middle','top','left side','right side','vertical · left edge','vertical · right edge']],
+  ['tilt',     'Tilt (°)',      -35, 35,  1, 0,       'Text'],
+  ['clarity',  'Clarity',        0, 1,    0.05, 0.5,  'Text'],
+  ['waveAmt',  'Wave distortion',0, 0.8,  0.02, 0,    'Text'],
+  ['waveMode', 'Wave type',      0, 3,    1, 0,       'Text', ['ripple','sway','twist','interference']],
+  ['waveFreq', 'Wave frequency', 0.05, 2, 0.05, 0.6,  'Text'],
+  ['waveSpeed','Wave speed',     0, 12,   0.1, 3,     'Text'],
+  ['waveBeat', 'Wave on beat',   0, 3,    0.05, 0,    'Text'],
+  ['physOn',   'Physics',        0, 1,    1, 1,       'Physics & forms', 'toggle'],
+  ['phys',     'Physics strength',0, 1,   0.05, 0.7,  'Physics & forms'],
+  ['kickPhys', 'Kick perturbation',0, 2,  0.05, 1,    'Physics & forms'],
+  ['attrPoints','Attractor points',2000, 30000, 1000, 12000, 'Physics & forms'],
+  ['attrSpeed','Attractor speed',0.2, 3,  0.05, 1,    'Physics & forms'],
+  ['formsOn',  'Forms (cymatics, geometry)', 0, 1, 1, 1, 'Physics & forms', 'toggle'],
+  ['forms',    'Forms strength', 0, 1.5,  0.05, 0.8,  'Physics & forms'],
+  ['sand',     'Sand grains',    1000, 12000, 500, 4000, 'Physics & forms'],
+  ['patchesOn','Fractal patches', 0, 1,   1, 1,       'Physics & forms', 'toggle'],
+  ['patches',  'Patch strength', 0, 2,    0.05, 1,    'Physics & forms'],
+  ['patchMax', 'Max patches',    1, 8,    1, 8,       'Physics & forms'],
+  ['hudOn',    'Section title',  0, 1,    1, 1,       'Screen', 'toggle'],
+  ['metersOn', 'Meters',         0, 1,    1, 1,       'Screen', 'toggle'],
+  ['renderMax','Render size',    0, 2,    1, 0,       'Screen', ['1080p (fast)','1440p','native (slow on 4K)']],
+];
+const FONTS = ['ui-sans-serif, system-ui, "Segoe UI", sans-serif', 'Georgia, "Times New Roman", serif', 'ui-monospace, Consolas, monospace', '"Segoe UI Variable Display", "Arial Rounded MT Bold", system-ui, sans-serif'];
+function tuneDefaults() {
+  const d = Object.fromEntries(TUNE_DEF.map(x => [x[0], x[5]])), pal = pack.palette || {};
+  if (pal.life != null) d.lifeHue = pal.life; if (pal.digital != null) { d.digHue = pal.digital; d.gridHue = pal.digital; } if (pal.flame != null) d.flameHue = pal.flame;
+  // pack.tune may use the brief's names: kickThreshold -> kickSens, reactivity -> react
+  const pt = Object.assign({}, pack.tune || {});
+  if (pt.kickThreshold != null) { pt.kickSens = pt.kickThreshold; delete pt.kickThreshold; }
+  if (pt.reactivity != null) { pt.react = pt.reactivity; delete pt.reactivity; }
+  d.kickV = 13;                                        // detector version marker (v1.3 adaptive kick)
+  return Object.assign(d, pt);
+}
+// Saved tunings from before v1.3 store every key, including the untouched old default kickSens 1.45.
+// Treat exactly that value as "never set" so the pack default can apply; any other saved value still wins.
+function migrateTune(saved) {
+  if (saved && saved.kickV == null && saved.kickSens === 1.45) delete saved.kickSens;
+  return saved;
+}
+let pack, P = [], tune = {}, starts = [], userOv = [], timing = null;
+const key = s => 'livevis:' + pack.id + ':' + s;
+
+function buildSliders() {
+  const box = $('sliders'); box.innerHTML = '';
+  const groups = {};
+  for (const [k, label, min, max, step, , group, kind] of TUNE_DEF) {
+    if (!groups[group]) {
+      const d = document.createElement('details'); d.className = 'grp'; d.open = store.get('livevis:grp:' + group, group === 'Reaction' || group === 'Look & color');
+      d.innerHTML = `<summary>${group}<span class="gtools"><button class="small" data-g="dice" title="Randomize this group (around the defaults)">🎲</button><button class="small" data-g="reset" title="Reset this group">↺</button></span></summary>`;
+      d.addEventListener('toggle', () => store.set('livevis:grp:' + group, d.open));
+      d.querySelector('[data-g=dice]').addEventListener('click', e => { e.preventDefault(); diceGroup(group); });
+      d.querySelector('[data-g=reset]').addEventListener('click', e => { e.preventDefault(); const D = tuneDefaults(); for (const x of TUNE_DEF) if (x[6] === group) tune[x[0]] = D[x[0]]; window.LVC.setTune({}, true); makeParticles(); });
+      box.appendChild(d); groups[group] = d;
+    }
+    const row = document.createElement('div'); row.className = 'row'; row.dataset.find = (label + ' ' + group + ' ' + k).toLowerCase();
+    const D0 = tuneDefaults()[k], mark = () => row.classList.toggle('changed', Math.abs((tune[k] ?? 0) - (D0 ?? 0)) > 1e-9);
+    const set = v => { setRaw(v); mark(); };
+    const setRaw = v => { tune[k] = v; store.set(key('tune'), tune); if (k === 'count') makeParticles(); if (k === 'renderMax') { resize(); makeParticles(); } if (/^(lifeHue|digHue|flameHue|bgHue|bgLight|hue)$/.test(k)) buildTimeline(); };
+    if (kind === 'toggle') {
+      row.innerHTML = `<label for="t-${k}">${label}</label><input id="t-${k}" type="checkbox" style="justify-self:start"><output></output>`;
+      const inp = row.querySelector('input'); inp.checked = tune[k] > 0; inp.addEventListener('change', () => set(inp.checked ? 1 : 0));
+    } else if (Array.isArray(kind)) {
+      row.innerHTML = `<label for="t-${k}">${label}</label><select id="t-${k}" class="small">${kind.map((o, i) => `<option value="${i}">${o}</option>`).join('')}</select><output></output>`;
+      const inp = row.querySelector('select'); inp.value = String(Math.round(tune[k])); inp.addEventListener('change', () => set(+inp.value));
+    } else {
+      row.innerHTML = `<label for="t-${k}">${label}</label><input id="t-${k}" type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
+      const inp = row.querySelector('input'), out = row.querySelector('output'), f = v => (+v).toFixed(step < 1 ? 2 : 0);
+      inp.value = tune[k]; out.textContent = f(tune[k]);
+      if (/Hue$/.test(k)) inp.style.accentColor = `hsl(${tune[k]},80%,55%)`;
+      inp.addEventListener('input', () => { out.textContent = f(inp.value); if (/Hue$/.test(k)) inp.style.accentColor = `hsl(${inp.value},80%,55%)`; set(+inp.value); });
+    }
+    mark();
+    row.querySelector('label').addEventListener('dblclick', () => { set(D0); buildSliders(); });
+    row.querySelector('label').title = 'Double-click: reset to ' + D0;
+    groups[group].appendChild(row);
+  }
+  filterSliders();
+}
+function filterSliders() {
+  const q = ($('tuneFind').value || '').trim().toLowerCase();
+  document.querySelectorAll('#sliders .row').forEach(r => r.classList.toggle('hide', !!q && !q.split(/\s+/).every(w => r.dataset.find.includes(w))));
+  document.querySelectorAll('#sliders details.grp').forEach(d => { if (q) d.open = !!d.querySelector('.row:not(.hide)'); d.style.display = q && !d.querySelector('.row:not(.hide)') ? 'none' : ''; });
+}
+$('tuneFind').addEventListener('input', filterSliders);
+$('tuneFind').addEventListener('keydown', e => { if (e.key === 'Escape') { e.target.value = ''; filterSliders(); e.target.blur(); } e.stopPropagation(); });
+// 🎲 per group: hues anywhere on the wheel, other sliders within ±35% of their range around the default; heavy/structural keys left alone
+const DICE_SKIP = new Set(['count', 'attrPoints', 'renderMax', 'sand', 'lyricsOn', 'hudOn', 'metersOn', 'textPosOn', 'place', 'beatLock', 'physOn', 'formsOn', 'patchesOn', 'typeFx', 'kickSens', 'textSize', 'textBright', 'patchMax']);
+function diceGroup(group) {
+  const D = tuneDefaults();
+  for (const [k, , min, max, step, , g, kind] of TUNE_DEF) {
+    if (g !== group || DICE_SKIP.has(k)) continue;
+    let v;
+    if (kind === 'toggle') v = Math.random() < 0.5 ? 1 : 0;
+    else if (Array.isArray(kind)) v = Math.floor(Math.random()*kind.length);
+    else if (/Hue$/.test(k)) v = Math.random()*360;
+    else v = (D[k] ?? (min + max)/2) + (Math.random() - 0.5)*0.7*(max - min);
+    v = Math.max(min, Math.min(max, Math.round(v/step)*step)); tune[k] = +v.toFixed(4);
+  }
+  window.LVC.setTune({}, true);
+}
+
+// ---------------- pack loading ----------------
+function loadPack(id) {
+  pack = PACKS.find(p => p.id === id) || PACKS[0];
+  document.title = pack.title + ' · Live Visualizer';
+  window.LV_START = pack.videoStart || 0;              // read by the record bookmarklet
+  if (pack.spectra && !(window.VIZ_SPECTRA && window.VIZ_SPECTRA[pack.id])) { const sc = document.createElement('script'); sc.src = pack.spectra; sc.onerror = () => console.warn(pack.title + ': spectra file not found: ' + pack.spectra); document.head.appendChild(sc); }
+  tune = Object.assign(tuneDefaults(), migrateTune(store.get(key('tune'), {})));
+  starts = store.get(key('starts'), null) || pack.sections.map(s => s.start);
+  if (starts.length !== pack.sections.length) starts = pack.sections.map(s => s.start);
+  userOv = store.get(key('userOverlays'), []);
+  setTiming(store.get(key('timing'), null), false);
+  resize(); buildSliders(); buildTimeline(); buildOverlays(); makeParticles(); refreshTimesBox();
+  if (typeof buildFx === 'function') buildFx();
+}
+$('pack').innerHTML = PACKS.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+$('pack').addEventListener('change', e => loadPack(e.target.value));
+
+// ---------------- canvas & particles ----------------
+const cv = $('stage'), ctx = cv.getContext('2d'), pcv = $('physics'), pctx = pcv.getContext('2d');
+const fcv = $('forms'), fctx = fcv.getContext('2d'), tcv = $('typefx'), tctx = tcv.getContext('2d');
+let W = 0, H = 0, S = 0, DPR = 1;
+function resize() {
+  // Render size (Tune → Screen): canvases are capped at 1920 px wide by default. On a high-DPI / 4K screen the old rule
+  // (device pixels, up to 2×) drew ~4× the pixels of 1080p, and the 2026-11-06 recording dropped to 9–18 fps.
+  const cap = [1920, 2560, Infinity][Math.round((tune && tune.renderMax) || 0)] || 1920;
+  DPR = Math.min(window.devicePixelRatio || 1, 2, cap / innerWidth);
+  W = cv.width = pcv.width = fcv.width = tcv.width = Math.floor(innerWidth * DPR); H = cv.height = pcv.height = fcv.height = tcv.height = Math.floor(innerHeight * DPR);
+  S = Math.min(W, H) * 0.46; ctx.fillStyle = tune && tune.bgHue != null ? `hsl(${tune.bgHue|0},45%,${tune.bgLight}%)` : '#05060f'; ctx.fillRect(0, 0, W, H);
+}
+addEventListener('resize', resize); resize();
+function makeParticles() {
+  const n = Math.round(tune.count); P = [];
+  for (let i = 0; i < n; i++) P.push({ x:(Math.random()*2-1)*1.6, y:Math.random()*2-1, vx:0, vy:0, r:Math.random(), seed:Math.random()*1000 });
+  CYM = [chladni(1,4,n), chladni(2,5,n), chladni(3,7,n), chladni(5,8,n)];
+}
+function chladni(a, b, n) {
+  const pts = [];
+  while (pts.length < n) {
+    const x = Math.random()*2-1, y = Math.random()*2-1;
+    const v = Math.cos(a*Math.PI*x)*Math.cos(b*Math.PI*y) - Math.cos(b*Math.PI*x)*Math.cos(a*Math.PI*y);
+    if (Math.abs(v) < 0.06) pts.push([x*0.95, y*0.95]);
+  }
+  return pts;
+}
+let CYM = [];
+const PHI = (1 + Math.sqrt(5)) / 2;
+const IV = [[-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],[0,-1,PHI],[0,1,PHI],[0,-1,-PHI],[0,1,-PHI],[PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1]];
+const IE = [];
+for (let a = 0; a < 12; a++) for (let b = a+1; b < 12; b++) if (Math.abs(Math.hypot(IV[a][0]-IV[b][0], IV[a][1]-IV[b][1], IV[a][2]-IV[b][2]) - 2) < 0.01) IE.push([a, b]);
+const noise = (x, y, t) => Math.sin(x*1.7 + t*0.6 + Math.sin(y*2.3 - t*0.4)) + Math.cos(y*1.9 - t*0.5 + Math.sin(x*1.3 + t*0.3));
+
+// ---------------- scene library: target position per particle ----------------
+const GOLD = 2.39996;
+const SCENES = {
+  ink(i,u,t)        { const a = i*GOLD + t*0.05, r = Math.sqrt(u)*0.9; return [Math.cos(a)*r*1.2, Math.sin(a)*r*0.7]; },
+  slope(i,u,t)      { const x = ((u + t*0.04) % 1)*2.6 - 1.3; return [x, -0.45*x + Math.sin(i)*0.12]; },
+  vortex(i,u,t,p)   { const sc = [1,.7,.48,.3][Math.min(3, Math.floor(p*4))], r = Math.sqrt(u)*0.95*sc, a = i*GOLD + t*(1.2/(r+0.15)); return [Math.cos(a)*r, Math.sin(a)*r*0.85]; },
+  ring(i,u,t)       { if (u < 0.08) { const a = i*GOLD, r = Math.sqrt(u/0.08)*0.07; return [Math.cos(a)*r, Math.sin(a)*r - 0.03]; } const a = u*Math.PI*14 + t*0.15, r = 0.48 + Math.sin(i*12.9)*0.07; return [Math.cos(a)*r, Math.sin(a)*r]; },
+  ghost(i,u,t)      { const k = (u*3 + t*0.07) % 1, r = 0.95*(1-k) + 0.04, a = i*GOLD + k*9 + t*0.2; return [Math.cos(a)*r*1.25, Math.sin(a)*r*0.8]; },
+  flock(i,u,t)      { const c = i % 5, cx = Math.sin(t*0.37 + c*1.3)*0.7, cy = Math.sin(t*0.53 + c*2.1)*0.45, a = i*GOLD, r = Math.sqrt(u)*0.28 + 0.03*Math.sin(t+i); return [cx + Math.cos(a)*r, cy + Math.sin(a)*r]; },
+  cityforest(i,u)   { if (i % 2) { const g = 30; return [0.08 + (i % g)/g*1.2, ((i/g|0) % 25)/25*1.6 - 0.8]; } const c = i % 9, a = i*GOLD, r = Math.sqrt(u)*0.2; return [-0.3 - (c%3)*0.38 + Math.cos(a)*r, ((c/3|0)-1)*0.5 + Math.sin(a)*r]; },
+  waves(i,u,t,p,b,n){ const g = 50, gx = (i % g)/g*2.4 - 1.2, gy = (i/g|0)/(n/g)*1.8 - 0.9, d1 = Math.hypot(gx+0.4, gy), d2 = Math.hypot(gx-0.4, gy); return [gx, gy + 0.05*(Math.sin(d1*18 - t*4) + Math.sin(d2*18 - t*4))]; },
+  cymatics(i,u,t,p) { const pt = CYM[Math.min(3, Math.floor(p*4))][i] || [0,0]; return [pt[0]*0.95, pt[1]*0.95]; },
+  eddy(i,u,t)       { const r = Math.sqrt(u)*0.9, a = i*GOLD + t*(0.5/(r+0.1)) - r*6; return [Math.cos(a)*r, Math.sin(a)*r]; },
+  platonic(i,u,t,p,beat) {
+    const e = IE[i % IE.length], f = ((i/IE.length) % 1 + u) % 1, A = IV[e[0]], B = IV[e[1]];
+    let x = A[0]+(B[0]-A[0])*f, y = A[1]+(B[1]-A[1])*f, z = A[2]+(B[2]-A[2])*f;
+    const ry = t*0.5 + Math.floor(beat/3)*0.35, rx = t*0.3;
+    [x, z] = [x*Math.cos(ry) - z*Math.sin(ry), x*Math.sin(ry) + z*Math.cos(ry)];
+    [y, z] = [y*Math.cos(rx) - z*Math.sin(rx), y*Math.sin(rx) + z*Math.cos(rx)];
+    const k = 0.32/(1 + z*0.18); return [x*k - 0.15, y*k];
+  },
+  fold(i,u,t,p)     { const seg = Math.pow(2, Math.min(1 + Math.floor(p*7.999), 5)), r = Math.sqrt(u)*0.92, w = Math.PI*2/seg; let a = i*GOLD + t*0.25; a = ((a % w) + w) % w; if (a > w/2) a = w - a; a += (i % seg)*w; return [Math.cos(a)*r, Math.sin(a)*r]; },
+  tear(i,u,t,p)     { const r = Math.sqrt(u)*0.95, a = i*GOLD + t*0.8, q = 0.12 - p*0.1; return [Math.round(Math.cos(a)*r/q)*q, Math.round(Math.sin(a)*r/q)*q]; },
+  mandala(i,u,t,p,beat) { const sym = 6, r = 0.08 + Math.pow(u,0.7)*0.88, petal = Math.floor(u*sym*12) % sym, base = (i*GOLD) % (Math.PI*2/sym), a = base + petal*(Math.PI*2/sym) + Math.floor(beat/3)*(Math.PI*2/18) + t*0.04, rr = r*(1 + 0.06*Math.sin(r*24 - t*3)); return [Math.cos(a)*rr, Math.sin(a)*rr]; },
+  // v1.4 off-centre scenes (D: "why always the orb"): use the whole frame instead of a disc around the middle
+  field(i,u,t)      { const gx = ((i*0.7548776662) % 1), gy = ((i*0.5698402910) % 1); return [gx*3.5 - 1.75 + 0.04*Math.sin(t*0.3 + i), gy*2.1 - 1.05 + 0.04*Math.cos(t*0.27 + i*1.7)]; },   // even spread over the whole frame (Blank)
+  horizon(i,u,t,p,beat) { const k = i % 5, x = u*3.5 - 1.75, ph = t*0.7 + k*1.3; return [x, (k - 2)*0.16 + 0.13*Math.sin(x*2.2 + ph) + 0.05*Math.sin(x*7 - t*1.9 + k)]; },
+  rain(i,u,t)       { const col = i % 56, sp = 0.18 + 0.12*((col*7) % 5)/4, x = col/56*3.5 - 1.75 + 0.01*Math.sin(t + col); return [x, ((u*5.3 + t*sp + col*0.37) % 1)*2.1 - 1.05]; },
+  lattice(i,u,t,p,beat) { const cols = 34, c = i % cols, r = Math.floor(i/cols) % 20, x = (c + (r % 2)*0.5)/cols*3.5 - 1.75, y = r/20*2 - 0.95, br = 1 + 0.06*Math.pow(1 - (beat % 1), 3);
+    return [x*br + 0.02*Math.sin(t*1.3 + r), y*br + 0.02*Math.cos(t*1.1 + c)]; },
+  melt(i,u,t,p)     { const a = i*GOLD + t*0.05, r = Math.sqrt(u)*0.9*(1 + p*0.4); return [Math.cos(a)*r*1.2, Math.sin(a)*r*0.7]; },
+};
+
+// ---------------- audio ----------------
+const audio = $('audio');
+let actx = null, analyser = null, freq = null, hasAudio = false, audioName = '';
+let playing = false, clock = 0, lastTs = performance.now();
+function ensureAudioGraph() {
+  if (actx) return;
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  actx = new AC();
+  const src = actx.createMediaElementSource(audio);
+  analyser = actx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.25;
+  src.connect(analyser); analyser.connect(actx.destination);
+  freq = new Uint8Array(analyser.frequencyBinCount);
+  // stereo taps for the scope layers (layers/spectrum.js); freq is refreshed by the main loop every frame
+  const split = actx.createChannelSplitter(2), aL = actx.createAnalyser(), aR = actx.createAnalyser();
+  aL.fftSize = aR.fftSize = 2048; src.connect(split); split.connect(aL, 0); split.connect(aR, 1);
+  window.VizAudio = { freq, playing: () => hasAudio && !audio.paused, sampleRate: () => actx.sampleRate, fftSize: () => analyser.fftSize,
+    timeL: b => aL.getFloatTimeDomainData(b), timeR: b => aR.getFloatTimeDomainData(b) };
+}
+$('file').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  audio.src = URL.createObjectURL(f); hasAudio = true; playing = false; audioName = f.name;
+  ensureAudioGraph(); updatePlay();
+});
+const timingEnd = () => timing && Array.isArray(timing.beats) && timing.beats.length ? timing.beats[timing.beats.length - 1] + 2 : 0;
+const songEnd = () => hasAudio && isFinite(audio.duration) ? audio.duration : (timingEnd() || pack.length || starts[starts.length-1] + 20);
+const now = () => hasAudio ? audio.currentTime : clock;
+function seek(t) { t = Math.max(0, Math.min(songEnd() - 0.05, t)); if (hasAudio) audio.currentTime = t; else clock = t; }
+function togglePlay() {
+  if (hasAudio) { ensureAudioGraph(); if (actx && actx.state === 'suspended') actx.resume(); audio.paused ? audio.play() : audio.pause(); }
+  else { playing = !playing; }
+  updatePlay();
+}
+function updatePlay() { $('play').textContent = (hasAudio ? !audio.paused : playing) ? 'Pause' : (hasAudio ? 'Play song' : 'Play preview'); }
+audio.addEventListener('play', updatePlay); audio.addEventListener('pause', updatePlay);
+audio.addEventListener('loadedmetadata', () => { buildTimeline(); if (pack.videoStart && audio.currentTime < 0.1) audio.currentTime = pack.videoStart; });   // skip the silent lead-in
+$('play').addEventListener('click', togglePlay);
+
+// band energies 0..1 and kick onsets
+const bands = { bass:0, mid:0, high:0, kick:0 };
+// v1.3 kick detector (measured in analysis/kick/, see docs/STATUS.md):
+//   rise = low(35-120 Hz) now minus ~33 ms ago (time-based, so 60/144 Hz screens behave the same)
+//   fire at a local peak of rise above  median(rise, last 1.5 s) * 2k + floor,  k = Kick threshold - 0.45
+//   per-section sensitivity: section.kickSens (>1 = more sensitive)
+//   Beat lock (timing loaded): peaks within ±60 ms of (timing beat + measured latency) are kicks; others are a
+//   soft off-beat pulse. The latency is self-calibrated: the running median of the signed peak-to-beat offset of
+//   peaks already near a beat, so audio-output latency and slow clock drift on any machine are absorbed.
+const KICK = { lag:0.033, win:1.5, floor:0.02, gap:0.18, lockWin:0.06, offPulse:0.4, calWin:0.08, calN:31 };
+let lowHist = [], riseBuf = [], prevR = 0, prev2R = 0, prevRT = -1, prevThr = 1e9, lastKick = -1, kickCount = 0, offCount = 0, beatIdx = 0, lastT = -1;
+let lockOff = 0, calBuf = [];
+function beatOffset(tk) {                               // signed distance from tk to the nearest timing beat (s)
+  const b = timing && timing.beats; if (!b || !b.length) return Infinity;
+  if (beatIdx >= b.length || b[beatIdx] > tk + 1) beatIdx = 0;          // after a seek back, rescan
+  while (beatIdx + 1 < b.length && b[beatIdx + 1] <= tk) beatIdx++;
+  const d0 = tk - b[beatIdx], d1 = beatIdx + 1 < b.length ? tk - b[beatIdx + 1] : Infinity;
+  return Math.abs(d0) <= Math.abs(d1) ? d0 : d1;
+}
+function lockedKick(tk) {                               // true if a peak at tk sits on the (latency-corrected) beat grid
+  const d = beatOffset(tk - lockOff);
+  if (Math.abs(d) <= KICK.calWin) {                     // near a beat: update the latency estimate (median of the last 31)
+    calBuf.push(d + lockOff); if (calBuf.length > KICK.calN) calBuf.shift();
+    if (calBuf.length >= 5) { const s = calBuf.slice().sort((a, b) => a - b); lockOff = Math.max(-0.15, Math.min(0.15, s[s.length >> 1])); }
+  }
+  return Math.abs(d) <= KICK.lockWin;
+}
+function analyse(t, dt) {
+  const bpm = pack.bpm || 120, beat = t*bpm/60;
+  let bass, mid, high, onset = false;
+  if (hasAudio && analyser && !audio.paused) {
+    analyser.getByteFrequencyData(freq);
+    const hz = actx.sampleRate / analyser.fftSize, band = (a, b) => { let s = 0, n = 0; for (let k = Math.floor(a/hz); k <= Math.ceil(b/hz); k++) { s += freq[k]; n++; } return s/n/255; };
+    bass = band(30, 150); mid = band(250, 2000); high = band(4000, 12000);
+    if (t < lastT - 0.05 || t > lastT + 0.5) { lowHist = []; riseBuf = []; prevR = prev2R = 0; prevThr = 1e9; lastKick = -1; }   // seek: restart
+    lastT = t;
+    const low = band(35, 120);
+    lowHist.push([t, low]);
+    while (lowHist.length > 2 && lowHist[1][0] <= t - KICK.lag) lowHist.shift();
+    const r = t - lowHist[0][0] >= KICK.lag*0.5 ? Math.max(0, low - lowHist[0][1]) : 0;
+    riseBuf.push([t, r]);
+    while (riseBuf.length && riseBuf[0][0] < t - KICK.win) riseBuf.shift();
+    const vals = riseBuf.map(x => x[1]).sort((a, b) => a - b), med = vals[vals.length >> 1];
+    const sec = pack.sections[sectionAt(t)] || {}, sens = sec.kickSens || 1;
+    const thr = (med*2*Math.max(0.05, tune.kickSens - 0.45) + KICK.floor) / sens;
+    if (prevR > prevThr && prevR >= r && prevR > prev2R && prevRT - lastKick > KICK.gap) {   // the previous frame was a peak
+      const lock = tune.beatLock > 0 && timing && Array.isArray(timing.beats) && timing.beats.length;
+      if (!lock || lockedKick(prevRT)) { onset = true; lastKick = prevRT; }
+      else { bands.kick = Math.max(bands.kick, KICK.offPulse); offCount++; }
+    }
+    prev2R = prevR; prevR = r; prevRT = t; prevThr = thr;
+  } else {                                              // preview: synthetic groove at the pack tempo
+    const ph = beat % 1;
+    bass = 0.35 + 0.5*Math.pow(1 - ph, 3); mid = 0.4 + 0.2*Math.sin(t*1.3); high = 0.3 + 0.25*Math.pow(1 - ((beat*3) % 1), 4);
+    if ((playing || hasAudio) && beat > 0 && Math.floor(beat) !== Math.floor(beat - dt*bpm/60)) onset = true;   // beat > 0: no burst of kicks while parked at 0:00
+  }
+  if (onset) { if (!(hasAudio && analyser && !audio.paused)) lastKick = t; bands.kick = 1; kickCount++; }   // audio: lastKick = the peak frame
+  window.LV = { kicks: kickCount, offbeats: offCount, lastKick, lockOffMs: Math.round(lockOff*1000), bands };          // read-only debug view
+  const ease = (o, v) => o + (v - o)*Math.min(1, dt*14);
+  bands.bass = ease(bands.bass, bass); bands.mid = ease(bands.mid, mid); bands.high = ease(bands.high, high);
+  bands.kick *= Math.exp(-dt*7);
+  return onset;
+}
+
+// ---------------- timing file (from tools/lyric-sync/align.py) ----------------
+function setTiming(tm, applyStarts) {
+  timing = tm && (Array.isArray(tm.lines) || Array.isArray(tm.sections)) ? tm : null;
+  $('timingBtn').firstChild.textContent = timing ? (timing.draft ? 'Timing \u2713 draft' : 'Timing \u2713') : 'Load timing';
+  if (!timing) return;
+  timing.lines = timing.lines || [];
+  timing._byLine = timing.lines.map(() => []);
+  (timing.words || []).forEach(w => { if (w.start != null && timing._byLine[w.line]) timing._byLine[w.line].push(w); });
+  if (applyStarts) {
+    starts = pack.sections.map((s, i) => { const f = (timing.sections || []).find(x => x.name === s.name); return f ? f.start : starts[i]; });
+    starts[0] = Math.min(starts[0], 0);
+    for (let j = 1; j < starts.length; j++) if (starts[j] <= starts[j-1]) starts[j] = starts[j-1] + 0.5;
+    store.set(key('starts'), starts); buildTimeline(); refreshTimesBox();
+  }
+}
+// vocal pitch track (tools/lyric-sync/pitch.py): MIDI note at time t; null = not singing; undefined = no track
+const pitchAt = t => { const pt = timing && timing.pitch; if (!pt || !pt.midi) return undefined; const v = pt.midi[Math.round((t - (pt.t0 || 0))/pt.hop)]; return v == null ? null : v; };
+let forcedStyle = '';
+const styleOf = name => forcedStyle || (OVR.blank ? 'ink' : (pack.sections.find(s => s.name === name) || {}).type);
+let fxOn = false;
+
+// ---------------- effects: on timing (section forms + recorded cues) or on demand ----------------
+// v1.4: every on-demand effect comes from ui/fx-catalog.js (all registered form types + variants, grouped by category).
+const FX = (window.VIZ_FX_CATALOG || []).filter(f => !f.special);
+const FX_ALL = window.VIZ_FX_CATALOG || [];
+const DIGIT_FX = ['faraday','chladniS','chladniC','flower','fractal','metatron','crystal','phyllo','halley'];   // keys 1-9 (as in v1.2)
+const FRACT_DEF = { type:'halley', formula:'z^3 - 1 + t*z', t:[0, 1], tMode:'section', colors:'classic8', iter:50, view:[-2, 2, -2, 2] };
+const FRACT = Object.assign({}, FRACT_DEF);
+FX.find(f => f.key === 'halley').cfg = FRACT;
+// colour tokens '@life' '@digital' '@flame' ('@life+30') in catalog configs -> the current Tune colours as hex
+function hueHex(h, sat, l) { h = ((h % 360) + 360) % 360; const s = sat/100, L = l/100, k = n => (n + h/30) % 12, a = s*Math.min(L, 1 - L);
+  const f = n => L - a*Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return '#' + [f(0), f(8), f(4)].map(v => Math.round(v*255).toString(16).padStart(2, '0')).join(''); }
+function resolveCfg(cfg) {
+  if (!cfg || !Object.values(cfg).some(v => typeof v === 'string' && v[0] === '@')) return cfg;
+  const H = { life: tune.lifeHue, digital: tune.digHue, flame: tune.flameHue }, out = {};
+  for (const [k, v] of Object.entries(cfg)) {
+    const m = typeof v === 'string' && /^@(life|digital|flame)([+-]\d+)?$/.exec(v);
+    out[k] = m ? hueHex(H[m[1]] + tune.hue + (+m[2] || 0), Math.max(35, tune.sat), 60) : v;
+  }
+  return out;
+}
+const palSig = () => [tune.lifeHue, tune.digHue, tune.flameHue, tune.hue, tune.sat].map(v => Math.round(v)).join('/');
+const FR_PRESETS = [
+  { name:'z³ − 1 (classic)',            formula:'z^3 - 1',               t:[0, 1],    view:[-2, 2, -2, 2] },
+  { name:'z³ − 1 + t·z',                formula:'z^3 - 1 + t*z',         t:[0, 1],    view:[-2, 2, -2, 2] },
+  { name:'z⁴ − 1 + t·z²',               formula:'z^4 - 1 + t*z^2',       t:[-1, 1],   view:[-2, 2, -2, 2] },
+  { name:'z⁵ − t·z − 1',                formula:'z^5 - t*z - 1',         t:[0, 2],    view:[-1.8, 1.8, -1.8, 1.8] },
+  { name:'z⁶ + t·z³ − 1',               formula:'z^6 + t*z^3 - 1',       t:[-1.5, 1.5], view:[-1.6, 1.6, -1.6, 1.6] },
+  { name:'z³ − 2z + 2 + t·i',           formula:'z^3 - 2*z + 2 + t*i',   t:[-0.5, 0.5], view:[-2.5, 2.5, -2.5, 2.5] },
+  { name:'sin(z) − t',                  formula:'sin(z) - t',            t:[0, 1.5],  view:[-4, 4, -4, 4] },
+  { name:'exp(z) − t·z²',               formula:'exp(z) - t*z^2',        t:[0.5, 2],  view:[-3, 3, -3, 3] },
+];
+function frFill() {
+  $('frFormula').value = FRACT.formula; $('frT0').value = FRACT.t[0]; $('frT1').value = FRACT.t[1]; $('frTMode').value = FRACT.tMode;
+  $('frColors').value = String(FRACT.colors); $('frIter').value = FRACT.iter;
+  [$('frR0').value, $('frR1').value, $('frI0').value, $('frI1').value] = FRACT.view;
+  frCheck();
+}
+function frCheck() {
+  try { VizFractal.compileFormula(FRACT.formula); $('frStatus').textContent = 'Halley on f(z,t) = ' + FRACT.formula; $('frStatus').classList.remove('bad'); return true; }
+  catch (e) { $('frStatus').textContent = e.message; $('frStatus').classList.add('bad'); return false; }
+}
+function frSave() { store.set(key('fractal'), FRACT); }
+function frRead() {
+  const n = (id, d) => { const v = parseFloat($(id).value); return isFinite(v) ? v : d; };
+  FRACT.t = [n('frT0', 0), n('frT1', 1)]; FRACT.tMode = $('frTMode').value;
+  const c = $('frColors').value; FRACT.colors = /^\d+$/.test(c) ? +c : c;
+  FRACT.iter = Math.max(5, Math.min(80, Math.round(n('frIter', 50))));
+  const v = [n('frR0', -2), n('frR1', 2), n('frI0', -2), n('frI1', 2)];
+  if (v[1] > v[0] && v[3] > v[2]) FRACT.view = v;
+  frSave();
+}
+$('frFormula').addEventListener('keydown', e => { if (e.key === 'Enter') { const old = FRACT.formula; FRACT.formula = $('frFormula').value.trim() || old; if (!frCheck()) FRACT.formula = old; else frSave(); } e.stopPropagation(); });
+$('frFormula').addEventListener('blur', () => { const old = FRACT.formula; FRACT.formula = $('frFormula').value.trim() || old; if (!frCheck()) { FRACT.formula = old; } else frSave(); });
+['frT0', 'frT1', 'frTMode', 'frColors', 'frIter', 'frR0', 'frR1', 'frI0', 'frI1'].forEach(id => $(id).addEventListener('change', frRead));
+$('frPreset').addEventListener('change', e => {
+  const pr = FR_PRESETS[+e.target.value]; if (!pr) return;
+  Object.assign(FRACT, { formula: pr.formula, t: pr.t.slice(), view: pr.view.slice() }); frFill(); frSave();
+  if (!fxEffective(now()).has('halley')) toggleFx('halley');          // picking a preset shows it
+});
+const FXBY = Object.fromEntries(FX.map(f => [f.key, f]));
+let fxLive = new Set(), fxCues = [], fxRec = false, fxStyleLive = '', fxSig = null;
+function fxEffective(t) {                     // key -> start time (cue time, or undefined = switched on live)
+  const m = new Map();
+  for (const c of fxCues) { if (c.t > t) break; if (c.fx) { if (c.on) m.set(c.fx, c.t); else m.delete(c.fx); } }
+  for (const k of fxLive) if (!m.has(k)) m.set(k, undefined);
+  return m;
+}
+function fxStyleAt(t) { if (fxStyleLive) return fxStyleLive; let s = ''; for (const c of fxCues) { if (c.t > t) break; if (c.style !== undefined) s = c.style; } return s; }
+function saveCues() { fxCues.sort((a, b) => a.t - b.t); store.set(key('cues'), fxCues); refreshCues(); fxSig = null; }
+function refreshCues() {
+  $('fxCueInfo').textContent = fxCues.length ? fxCues.length + ' cue' + (fxCues.length > 1 ? 's' : '') + ': ' + fxCues.slice(0, 6).map(c => fmt(c.t) + ' ' + (c.spawn ? 'K patch' : c.fx ? (c.on ? '+' : '−') + FXBY[c.fx]?.label : 'text ' + (c.style || 'auto'))).join(' · ') + (fxCues.length > 6 ? ' …' : '') : 'No cues yet. Turn on Record cues, play, and switch effects at the moments you want.';
+  $('cueBox').value = JSON.stringify({ pack: pack.id, cues: fxCues });
+}
+function toggleFx(k) {
+  if (k === 'patchK') return spawnPatch();
+  if (!FXBY[k]) return;
+  if (fxRec) { const t = +now().toFixed(2), on = !fxEffective(t).has(k); fxCues.push({ t, fx: k, on }); saveCues(); }
+  else { fxLive.has(k) ? fxLive.delete(k) : fxLive.add(k); fxSig = null; }
+}
+// K: spawn one fractal patch now. While recording, it is saved as a cue { t, spawn:'patch' } and replays on its own.
+function spawnPatch() {
+  if (!window.VizPatches) return;
+  const live = hasAudio ? !audio.paused : playing;
+  if (fxRec) { fxCues.push({ t: +now().toFixed(2), spawn: 'patch' }); saveCues(); if (live) return; }   // playing: the replay fires it next frame
+  VizPatches.spawn();
+}
+function fxAllOff() {
+  if (fxRec) { const t = +now().toFixed(2); for (const k of fxEffective(t).keys()) fxCues.push({ t, fx: k, on: false }); saveCues(); }
+  fxLive.clear(); fxSig = null;
+}
+// solo: only this effect, section effects muted; again (or 0) restores what was on before
+let solo = null;
+function soloFx(k) {
+  if (solo && solo.key === k) { fxLive = solo.live; VizForms.setAuto(solo.auto); $('fxAuto').checked = solo.auto; solo = null; fxSig = null; return; }
+  if (!solo) solo = { live: new Set(fxLive), auto: $('fxAuto').checked };
+  solo.key = k; fxLive = new Set([k]); VizForms.setAuto(false); $('fxAuto').checked = false; fxSig = null;
+}
+let autoInfoSig = '';
+function fxAutoInfo() {                      // "From the section now: …" chips, so the panel shows what the timing has switched on
+  const el = $('fxAutoNow'); if (!el || !window.VizForms) return;
+  const names = VizForms.debug().filter(l => l.target === 1 && l.key.startsWith('auto:')).map(l => l.key.slice(5));
+  const sig = names.join(',') + (solo ? '|solo ' + solo.key : '');
+  if (sig === autoInfoSig) return; autoInfoSig = sig;
+  el.innerHTML = (solo ? `<b>Solo: ${FXBY[solo.key]?.label || solo.key}</b> · ` : '') + (names.length ? 'From the section now: ' + names.map(n => `<span class="chip">${n}</span>`).join(' ') : 'No section effects right now');
+}
+// overrides from the Pad / Looks: particle scene, attractor, overlays everywhere (live only, not saved)
+const OVR = { scene: '', attractor: '', ovAll: false, blank: false };
+// Blank loadout: every section becomes a neutral stand-in (same name, lyrics and timing; no scene, forms, attractor, lights,
+// flash or overlays), so whatever is switched on by hand, a Look or a Roll is all you see.
+const blankCache = new Map();
+function blankSection(sec) {
+  let b = blankCache.get(sec);
+  if (!b) { b = { name: sec.name, act: sec.act, lyrics: sec.lyrics, text: sec.text, hue: 220, scene: 'field', order: [.3, .3], digital: .15, lights: 0, kickSens: sec.kickSens }; blankCache.set(sec, b); }
+  return b;
+}
+const physCache = new Map();
+function physSection(sec) {
+  if (!OVR.attractor) return sec;
+  const id = sec.name + '|' + OVR.attractor; let s = physCache.get(id);
+  if (!s) { const a = (window.VIZ_MODES?.attractors || []).find(x => x.key === OVR.attractor); s = Object.assign({}, sec, { attractor: a ? a.cfg : null, physicsOpacity: sec.physicsOpacity ?? 0.8 }); physCache.set(id, s); }
+  return s;
+}
+function buildFx() {
+  $('fxBtns').innerHTML = '';
+  for (const cat of (window.VIZ_FX_CATS || ['Effects'])) {
+    const h = document.createElement('div'); h.className = 'fxcat'; h.textContent = cat; $('fxBtns').appendChild(h);
+    for (const f of FX_ALL.filter(f => f.cat === cat)) {
+      const b = document.createElement('button'); b.dataset.k = f.key;
+      const d = DIGIT_FX.indexOf(f.key), hot = d >= 0 ? String(d + 1) : f.key === 'julia' ? 'J' : f.key === 'patchK' ? 'K' : '';
+      b.innerHTML = (hot ? `<kbd>${hot}</kbd> ` : '') + f.label;
+      b.title = f.special ? 'Spawns one growing fractal patch in an empty spot; records as a cue while Record cues is on' : 'Click: on/off · Alt-click or right-click: solo (only this, section effects muted)';
+      b.addEventListener('click', e => { if (e.altKey && !f.special) soloFx(f.key); else toggleFx(f.key); });
+      b.addEventListener('contextmenu', e => { e.preventDefault(); if (!f.special) soloFx(f.key); });
+      $('fxBtns').appendChild(b);
+    }
+  }
+  const styles = window.VizType ? VizType.styles : [];
+  $('fxStyle').innerHTML = '<option value="">Auto (per section)</option>' + styles.map(s => `<option value="${s}">${s}</option>`).join('');
+  $('fxAuto').checked = store.get(key('fxAuto'), true); window.VizForms && VizForms.setAuto($('fxAuto').checked);
+  fxStyleLive = store.get(key('fxStyle'), ''); $('fxStyle').value = fxStyleLive;
+  fxCues = store.get(key('cues'), []); fxLive.clear(); fxSig = null; refreshCues();
+  for (const k of Object.keys(FRACT)) delete FRACT[k];
+  Object.assign(FRACT, FRACT_DEF, store.get(key('fractal'), {}));
+  $('frPreset').innerHTML = '<option value="">Presets…</option>' + FR_PRESETS.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+  if (window.VizFractal) frFill();
+}
+let fxLastT = -1;
+function fxTick(t) {                          // once per frame: push the effective on-demand set to the form layers
+  if (window.VizPatches && t > fxLastT && t - fxLastT < 0.5)                 // replay recorded K cues (forward play only)
+    for (const c of fxCues) { if (c.t > t) break; if (c.spawn && c.t > fxLastT) VizPatches.spawn(); }
+  fxLastT = t;
+  const dem = !!(window.VizPatches && VizPatches.demandActive());
+  const eff = fxEffective(t), ps = palSig(), sig = [...eff].map(([k, t0]) => k + '@' + (t0 ?? '')).join(',') + (dem ? '|K' : '') + '|' + ps;
+  if (sig !== fxSig) {
+    fxSig = sig;
+    window.VizForms && VizForms.setManual([...eff].map(([k, t0]) => { const c = resolveCfg(FXBY[k].cfg); return { key: c === FXBY[k].cfg ? k : k + '|' + ps, cfg: c, t0 }; }).concat(dem ? [{ key: 'patchK', cfg: VizPatches.DEMAND_CFG }] : []));
+    const cuedNow = new Set([...eff].filter(([, t0]) => t0 !== undefined).map(([k]) => k));
+    document.querySelectorAll('[data-k]').forEach(b => { b.classList.toggle('on', eff.has(b.dataset.k)); b.classList.toggle('cued', cuedNow.has(b.dataset.k)); b.classList.toggle('solo', !!solo && solo.key === b.dataset.k); });
+  }
+  forcedStyle = fxStyleAt(t);
+  fxAutoInfo();
+}
+$('fxAuto').addEventListener('change', e => { store.set(key('fxAuto'), e.target.checked); window.VizForms && VizForms.setAuto(e.target.checked); });
+$('fxStyle').addEventListener('change', e => {
+  if (fxRec) { fxCues.push({ t: +now().toFixed(2), style: e.target.value }); saveCues(); fxStyleLive = ''; e.target.value = ''; }
+  else { fxStyleLive = e.target.value; store.set(key('fxStyle'), fxStyleLive); }
+});
+$('fxRec').addEventListener('click', () => { fxRec = !fxRec; $('fxRec').classList.toggle('rec', fxRec); $('fxRec').textContent = fxRec ? '● Recording…' : '● Record cues'; });
+$('fxClearCues').addEventListener('click', () => { fxCues = []; saveCues(); });
+$('fxCopyCues').addEventListener('click', () => { const box = $('cueBox'); refreshCues(); (navigator.clipboard ? navigator.clipboard.writeText(box.value) : Promise.reject()).then(() => { $('fxCopyCues').textContent = 'Copied'; setTimeout(() => $('fxCopyCues').textContent = 'Copy cues', 1200); }).catch(() => { box.focus(); box.select(); }); });
+$('fxApplyCues').addEventListener('click', () => {
+  try { const v = JSON.parse($('cueBox').value), arr = Array.isArray(v) ? v : v.cues; if (!Array.isArray(arr)) throw 0; fxCues = arr.filter(c => typeof c.t === 'number'); saveCues(); $('fxApplyCues').textContent = 'Applied'; }
+  catch (e) { $('fxApplyCues').textContent = 'Not cue JSON'; }
+  setTimeout(() => $('fxApplyCues').textContent = 'Apply pasted', 1500);
+});
+// minimise / maximise
+function setMini(id, btn, on, upDown) {
+  $(id).classList.toggle('mini', on); store.set('livevis:mini:' + id, on);
+  $(btn).textContent = upDown ? (on ? '▴' : '▾') : (on ? '+' : '–');
+}
+$('tuneMin').addEventListener('click', () => setMini('tune', 'tuneMin', !$('tune').classList.contains('mini')));
+$('fxMin').addEventListener('click', () => setMini('fx', 'fxMin', !$('fx').classList.contains('mini')));
+$('dockMin').addEventListener('click', () => setMini('dock', 'dockMin', !$('dock').classList.contains('mini'), true));
+setMini('tune', 'tuneMin', store.get('livevis:mini:tune', false));
+setMini('fx', 'fxMin', store.get('livevis:mini:fx', false));
+setMini('dock', 'dockMin', store.get('livevis:mini:dock', false), true);
+$('fxBtn').addEventListener('click', () => $('fx').classList.toggle('hidden'));
+$('timingFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  f.text().then(txt => {
+    let tm; try { tm = JSON.parse(txt); } catch (err) { $('timingBtn').firstChild.textContent = 'Not a timing file'; return; }
+    store.set(key('timing'), tm); setTiming(tm, true);
+    if (tm.song && tm.song !== pack.id) $('timingBtn').firstChild.textContent = 'Timing \u2713 (made for ' + tm.song + ')';
+  });
+});
+
+// ---------------- timeline & marking ----------------
+function buildTimeline() {
+  const tl = $('timeline'); tl.querySelectorAll('.seg').forEach(n => n.remove());
+  const end = songEnd();
+  pack.sections.forEach((s, k) => {
+    const d = document.createElement('div'); d.className = 'seg';
+    const s1 = k + 1 < starts.length ? starts[k+1] : end;
+    d.style.width = (Math.max(0.2, s1 - starts[k]) / end * 100) + '%';
+    d.style.background = `hsla(${(s.hue ?? 190) + tune.hue},55%,30%,${0.35 + 0.4*(k % 2)})`;
+    d.textContent = s.name; d.title = s.name;
+    tl.insertBefore(d, $('playhead'));
+  });
+}
+$('timeline').addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); seek((e.clientX - r.left)/r.width*songEnd()); });
+const sectionAt = t => { let k = 0; for (let j = 0; j < starts.length; j++) if (t >= starts[j]) k = j; return k; };
+let markHistory = [];
+function markNext() {
+  const t = now(), k = sectionAt(t);
+  if (k + 1 >= starts.length) return;
+  markHistory.push(starts.slice());
+  starts[k+1] = +t.toFixed(2);
+  for (let j = k + 2; j < starts.length; j++) if (starts[j] <= starts[j-1]) starts[j] = starts[j-1] + 1;
+  store.set(key('starts'), starts); buildTimeline(); refreshTimesBox();
+}
+function undoMark() { if (!markHistory.length) return; starts = markHistory.pop(); store.set(key('starts'), starts); buildTimeline(); refreshTimesBox(); }
+$('mark').addEventListener('click', markNext); $('undo').addEventListener('click', undoMark);
+function refreshTimesBox() { $('timesBox').value = JSON.stringify({ pack: pack.id, audio: audioName || undefined, starts }); }
+$('copyTimes').addEventListener('click', () => {
+  const box = $('timesBox'); refreshTimesBox();
+  (navigator.clipboard ? navigator.clipboard.writeText(box.value) : Promise.reject()).then(() => { $('copyTimes').textContent = 'Copied'; setTimeout(() => $('copyTimes').textContent = 'Copy times', 1200); }).catch(() => { box.focus(); box.select(); });
+});
+$('applyTimes').addEventListener('click', () => {
+  try { const v = JSON.parse($('timesBox').value), arr = Array.isArray(v) ? v : v.starts;
+    if (arr.length !== pack.sections.length) throw 0;
+    starts = arr.map(Number); store.set(key('starts'), starts); buildTimeline(); $('applyTimes').textContent = 'Applied';
+  } catch (e) { $('applyTimes').textContent = 'Needs ' + pack.sections.length + ' times'; }
+  setTimeout(() => $('applyTimes').textContent = 'Apply pasted times', 1500);
+});
+$('resetTimes').addEventListener('click', () => { starts = pack.sections.map(s => s.start); store.set(key('starts'), starts); store.set(key('timing'), null); setTiming(null, false); lastLine = '-'; buildTimeline(); refreshTimesBox(); });
+$('resetTune').addEventListener('click', () => { tune = tuneDefaults(); store.set(key('tune'), tune); buildSliders(); makeParticles(); buildTimeline(); });
+
+// ---------------- overlays (SVG layers) ----------------
+let OV = [];
+function buildOverlays() {
+  const host = $('overlays'); host.innerHTML = '';
+  OV = [...(pack.overlays || []), ...userOv].map((o, idx) => {
+    const img = new Image();
+    img.alt = ''; img.src = o.svgText ? URL.createObjectURL(new Blob([o.svgText], { type:'image/svg+xml' })) : o.src;
+    img.style.mixBlendMode = o.blend || 'screen'; img.style.opacity = 0;
+    host.appendChild(img);
+    return Object.assign({ el:img, user: idx >= (pack.overlays || []).length }, o);
+  });
+  const list = $('ovList'); list.innerHTML = '';
+  OV.forEach((o, idx) => {
+    const row = document.createElement('div'); row.className = 'ov';
+    const where = o.sections === 'all' ? 'all sections' : o.sections.join(', ');
+    row.innerHTML = `<span title="${where}">${o.name || (o.src || 'dropped svg').split('/').pop()} · ${where}</span>`;
+    const tog = document.createElement('button'); tog.className = 'small'; tog.textContent = o.off ? 'Show' : 'Hide';
+    tog.addEventListener('click', () => { o.off = !o.off; tog.textContent = o.off ? 'Show' : 'Hide'; });
+    row.appendChild(tog);
+    if (o.user) {
+      const del = document.createElement('button'); del.className = 'small'; del.textContent = 'Remove';
+      del.addEventListener('click', () => { userOv.splice(idx - (pack.overlays || []).length, 1); store.set(key('userOverlays'), userOv); buildOverlays(); });
+      row.appendChild(del);
+    } else row.appendChild(document.createElement('span'));
+    list.appendChild(row);
+  });
+}
+addEventListener('dragover', e => { e.preventDefault(); $('drop').style.display = 'grid'; });
+addEventListener('dragleave', e => { if (e.target === $('drop')) $('drop').style.display = 'none'; });
+addEventListener('drop', e => {
+  e.preventDefault(); $('drop').style.display = 'none';
+  const f = [...(e.dataTransfer.files || [])].find(f => /\.svg$/i.test(f.name) || f.type === 'image/svg+xml'); if (!f) return;
+  f.text().then(svgText => {
+    userOv.push({ name:f.name, svgText, sections:[pack.sections[sectionAt(now())].name], opacity:0.6, react:'kick', spin:0.05, scale:0.85, blend:'screen' });
+    store.set(key('userOverlays'), userOv); buildOverlays();
+  });
+});
+
+// ---------------- keyboard ----------------
+addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (window.LVPad && LVPad.key(e)) return;                // the Pad (ui/pad.js) and Looks keys first
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  else if (e.key === 'm' || e.key === 'M') markNext();
+  else if (e.key === 'u' || e.key === 'U') undoMark();
+  else if (e.key === 'h' || e.key === 'H') { $('dock').classList.toggle('hidden'); $('readout').classList.toggle('hidden'); $('tune').classList.add('hidden'); $('fx').classList.add('hidden'); }
+  else if (e.key === 't' || e.key === 'T') $('tune').classList.toggle('hidden');
+  else if (e.key === 'e' || e.key === 'E') $('fx').classList.toggle('hidden');
+  else if (/^[1-9]$/.test(e.key)) toggleFx(DIGIT_FX[+e.key - 1]);
+  else if (e.key === 'j' || e.key === 'J') toggleFx('julia');
+  else if (e.key === 'k' || e.key === 'K') spawnPatch();
+  else if (e.key === '0') { if (solo) soloFx(solo.key); fxAllOff(); }
+  else if (e.key === 'f' || e.key === 'F') { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); else document.exitFullscreen?.(); }
+  else if (e.key === 'ArrowRight') seek(now() + 5);
+  else if (e.key === 'ArrowLeft') seek(now() - 5);
+});
+$('tuneBtn').addEventListener('click', () => $('tune').classList.toggle('hidden'));
+
+// ---------------- render loop ----------------
+const fmt = s => Math.floor(s/60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+let lastSec = -1, flashT = -10, lastLine = '', wordIdx = 0, kicksAtLine = 0, fpsAvg = 60;
+const BENCH = /[?&]bench\b/.test(location.search);
+const glow = (x, y, r, col) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); };
+
+function frame(ts) {
+  const dt = Math.min(0.05, (ts - lastTs)/1000); lastTs = ts;
+  if (!hasAudio && playing) { clock += dt; if (clock >= songEnd()) clock = 0; }
+  const t = now(), onset = analyse(t, dt);
+  const k = sectionAt(t), sec = OVR.blank ? blankSection(pack.sections[k]) : pack.sections[k];
+  const s0 = starts[k], s1 = k + 1 < starts.length ? starts[k+1] : songEnd();
+  const p = Math.max(0, Math.min(1, (t - s0)/Math.max(0.5, s1 - s0)));
+  const R = tune.react, beat = t*(pack.bpm || 120)/60;
+  const order = Math.max(0, Math.min(1, sec.order[0] + (sec.order[1] - sec.order[0])*p + tune.orderBias + (bands.bass - 0.4)*0.25*R));
+  const pulse = bands.kick*R;
+  if (k !== lastSec) { if (sec.flash) flashT = ts/1000; lastSec = k; }   // flash fades on wall time, so it never sticks while paused
+
+  // HUD + meters
+  $('act').textContent = sec.act || ''; $('sec').textContent = sec.name;
+  fpsAvg += ((dt > 0 ? 1/dt : 60) - fpsAvg)*0.05;
+  $('time').textContent = fmt(t) + ' · ' + (k+1) + '/' + pack.sections.length + (BENCH ? ' · ' + Math.round(fpsAvg) + ' fps · ' + W + '×' + H : '');
+  $('m-order').firstChild.style.width = (order*100) + '%';
+  $('m-bass').firstChild.style.width = (bands.bass*100) + '%';
+  $('m-mid').firstChild.style.width = (bands.mid*100) + '%';
+  $('m-high').firstChild.style.width = (bands.high*100) + '%';
+  $('m-kick').firstChild.style.width = (bands.kick*100) + '%';
+  $('playhead').style.left = (t/songEnd()*100) + '%';
+
+  fxTick(t);
+  const pal = { life: tune.lifeHue, digital: tune.digHue, flame: tune.flameHue };
+
+  // lyrics: one line per slice of the section; "words" mode lights a word on every kick
+  const lyr = tune.lyricsOn > 0 ? (sec.lyrics || []) : [], el = $('lyric');
+  { const st = $('lyricStage'), custom = tune.textPosOn > 0, align = ['left','center','right'][Math.round(tune.textAlign)] || 'center';
+    st.classList.toggle('custom', custom); for (let i = 1; i <= 7; i++) st.classList.toggle('place-' + i, Math.round(tune.place) === i); st.style.setProperty('--ly-tilt', tune.tilt + 'deg'); st.style.setProperty('--ly-y', tune.textY + '%'); st.style.setProperty('--ly-align', align);
+    st.style.setProperty('--ly-font', FONTS[Math.round(tune.textFont)] || FONTS[0]);
+    st.style.opacity = el.style.opacity = tune.lyricsOn > 0 ? tune.textBright : 0;
+    el.style.textAlign = align; el.style.fontFamily = FONTS[Math.round(tune.textFont)] || '';
+    if (custom) { el.style.top = tune.textY + '%'; el.style.bottom = 'auto'; el.style.transform = 'translateY(-50%)'; } else { el.style.top = ''; el.style.bottom = ''; el.style.transform = ''; }
+    $('hud').style.display = tune.hudOn > 0 ? '' : 'none'; $('meters').style.display = tune.metersOn > 0 ? '' : 'none'; }
+  el.style.fontSize = `calc(clamp(18px, 3.2vw, 34px) * ${tune.textSize})`;
+  const useFx = !!(timing && timing.lines.length && window.VizType && tune.typeFx > 0 && tune.lyricsOn > 0);
+  if (useFx) {                                            // v1.2: per-section typography from the sung word times
+    if (!fxOn) { el.innerHTML = ''; lastLine = '#fx'; fxOn = true; }
+    VizType.frame({ t, dt, timing, styleOf, styleKey: pack.id + '|' + forcedStyle, host: $('lyricStage'), ctx: tctx, W, H, DPR, kick: onset, kickEnv: bands.kick,
+      palette: pal, hueShift: tune.hue, fontSize: `clamp(18px, 3.2vw, 34px) * ${tune.textSize}`, vertical: Math.round(tune.place) >= 6,
+      textFx: { clarity: tune.clarity, waveAmt: tune.waveAmt, waveFreq: tune.waveFreq, waveSpeed: tune.waveSpeed, waveMode: Math.round(tune.waveMode), waveBeat: tune.waveBeat } });
+  } else if (fxOn) { VizType.reset(); tctx.clearRect(0, 0, W, H); fxOn = false; lastLine = '-'; }
+  if (useFx) { /* handled above */ }
+  else if (timing && timing.lines.length && tune.lyricsOn > 0) {   // sung-time lyrics: karaoke words
+    let li = -1;
+    for (let j = 0; j < timing.lines.length; j++) { const L = timing.lines[j]; if (L.start != null && L.start <= t + 0.15) li = j; }
+    const L = timing.lines[li], show = L && t <= (L.end ?? L.start) + 2.5;
+    const id = show ? 'L' + li : '';
+    if (id !== lastLine) {
+      lastLine = id;
+      el.innerHTML = show ? timing._byLine[li].map(w => `<span>${String(w.text).replace(/</g,'&lt;')}</span>`).join(' ') : '';
+    }
+    el.className = 'timed';
+    if (show) { const ws = timing._byLine[li], sp = el.children;
+      for (let j = 0; j < sp.length; j++) { const w = ws[j]; sp[j].classList.toggle('on', w.start <= t && t < Math.max(w.end, w.start + 0.12) + 0.05); sp[j].classList.toggle('sung', w.end <= t); } }
+  } else if (lyr.length) {
+    const line = lyr[Math.min(lyr.length - 1, Math.floor(p*lyr.length))];
+    if (line !== lastLine) { lastLine = line; wordIdx = 0; el.innerHTML = line.split(' ').map(w => `<span>${w.replace(/</g,'&lt;')}</span>`).join(' '); }
+    el.className = sec.text === 'words' ? 'words' : 'line';
+    if (sec.text === 'words') {
+      if (onset) wordIdx++;
+      const spans = el.children, n = spans.length;
+      for (let j = 0; j < n; j++) spans[j].classList.toggle('on', j < Math.min(n, wordIdx + 1) && j >= Math.min(n, wordIdx + 1) - 1);
+    }
+  } else if (lastLine) { el.innerHTML = ''; lastLine = ''; }
+
+  // background trails
+  const fade = Math.min(0.9, (sec.fade ?? 0.12) * (1.6 - tune.trail*1.4) + pulse*0.05);
+  ctx.fillStyle = `hsla(${tune.bgHue|0},45%,${tune.bgLight.toFixed(1)}%,${fade.toFixed(3)})`; ctx.fillRect(0, 0, W, H);
+  const gridA = tune.gridOn > 0 ? Math.max(tune.gridBase*0.2, (sec.digital || 0)*order*0.18*tune.gridAmt)*(1 + pulse*0.6) : 0;
+  if (gridA > 0.005) {
+    ctx.strokeStyle = `hsla(${(tune.gridHue + tune.hue)|0},85%,62%,${Math.min(1, gridA).toFixed(3)})`; ctx.lineWidth = DPR; const step = S*tune.gridSize, gx = W/2, gy = H/2, Rm = Math.hypot(W, H)/2; ctx.beginPath();
+    const gt = Math.round(tune.gridType);
+    if (gt === 1) {                                         // hex / triangular lattice: three families of lines at 60°
+      for (let f = 0; f < 3; f++) { const a = f*Math.PI/3, ca = Math.cos(a), sa = Math.sin(a);
+        for (let d = -Rm; d <= Rm; d += step*0.866) { const px = gx - sa*d, py = gy + ca*d; ctx.moveTo(px - ca*Rm, py - sa*Rm); ctx.lineTo(px + ca*Rm, py + sa*Rm); } }
+    } else if (gt === 2) {                                  // polar: rings and 12 spokes
+      for (let r = step; r < Rm; r += step) { ctx.moveTo(gx + r, gy); ctx.arc(gx, gy, r, 0, 6.2832); }
+      for (let k = 0; k < 12; k++) { const a = k*Math.PI/6; ctx.moveTo(gx, gy); ctx.lineTo(gx + Math.cos(a)*Rm, gy + Math.sin(a)*Rm); }
+    } else {
+      for (let x = gx % step; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+      for (let y = gy % step; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    }
+    ctx.stroke();
+  }
+
+  // particles
+  const cx = W/2, cy = H/2, n = P.length, sceneName = OVR.scene || sec.scene, scene = SCENES[sceneName] || SCENES.ink;
+  const tearKick = sceneName === 'tear' ? [1,1,2,3,4,5,6,7][Math.min(7, Math.floor(p*8))] : 1;
+  const jitter = (sceneName === 'tear' ? Math.pow(1 - ((beat*tearKick) % 1), 3)*0.05 : 0) + bands.high*0.012*R;
+  const scale = 1 + pulse*0.06;
+  for (let i = 0; i < n; i++) {
+    const q = P[i], u = i/n;
+    const crack = sec.crack && i % 41 === 0, ord = crack ? 0.02 : order;
+    const [tx, ty] = scene(i, u, t, p, beat, n);
+    const fa = noise(q.x*2 + q.seed*0.01, q.y*2, t*0.7)*Math.PI, ch = 0.0035*tune.chaos*(1 + bands.mid*R);
+    q.vx = q.vx*0.86 + Math.cos(fa)*ch*(1 - ord) + (tx*scale - q.x)*0.06*ord;
+    q.vy = q.vy*0.86 + Math.sin(fa)*ch*(1 - ord) + (ty*scale - q.y)*0.06*ord;
+    if (onset && R > 0) { const d = Math.hypot(q.x, q.y) + 0.001; q.vx += q.x/d*0.008*R; q.vy += q.y/d*0.008*R; }   // kick shockwave
+    q.x += q.vx + (jitter ? (Math.random() - 0.5)*jitter : 0); q.y += q.vy;
+    if (q.x > 1.8 || q.x < -1.8 || q.y > 1.2 || q.y < -1.2) { q.x = (Math.random()*2-1)*1.4; q.y = (Math.random()*2-1)*0.9; q.vx = q.vy = 0; }
+    const digital = q.r < (sec.digital || 0) && !crack;
+    let hue = (digital ? pal.digital : pal.life) + tune.hue, sat = sec.mono ? 12 : tune.sat, light = 55 + bands.high*12*R;
+    if (sec.core && u < 0.08) { hue = pal.flame + tune.hue; light = 62; }
+    if (crack) { hue = 120 + tune.hue; light = 60; }
+    if (sceneName === 'waves') hue = pal.life + tune.hue + 40*Math.sin(Math.hypot(q.x + 0.4, q.y)*18 - t*4);
+    ctx.fillStyle = `hsla(${hue|0},${sat}%,${light|0}%,${(0.35 + 0.5*pulse*(0.3 + order*0.7)).toFixed(3)})`;
+    const X = cx + q.x*S, Y = cy + q.y*S, sz = (1.2 + q.r*1.6)*DPR*(1 + pulse*0.35)*tune.partSize;
+    if (digital) ctx.fillRect(X, Y, sz, sz); else { ctx.beginPath(); ctx.arc(X, Y, sz*0.6, 0, 6.2832); ctx.fill(); }
+  }
+
+  // physics layer (its own canvas, additive), form layers (cymatics + geometry) and the debug readout
+  {
+    const ro = window.VizPhysics ? VizPhysics.frame(pctx, { t, dt, order, bass:bands.bass, mids:bands.mid, highs:bands.high, kick:onset, kickEnv:bands.kick,
+      section:physSection(sec), sectionT:p, palette:pal, hueShift:tune.hue, tune, W, H, DPR }) : '';
+    const fo = window.VizForms ? VizForms.frame(fctx, { t, dt, order, bass:bands.bass, mids:bands.mid, highs:bands.high, kick:onset, kickEnv:bands.kick,
+      section:sec, sectionT:p, palette:pal, hueShift:tune.hue, tune, W, H, DPR, bpm: pack.bpm, pitch: pitchAt(t), timing, packId: pack.id }) : '';
+    const info = (ro ? ro + ' · ' : '') + (fo ? fo + ' · ' : '') + 'order ' + order.toFixed(2) + (timing ? ' · ' + (timing.draft ? 'draft sync: ' : 'synced to ') + (timing.source || 'timing file') + (timing.pitch ? ' + pitch' : '') : '');
+    if ($('readout').textContent !== info) $('readout').textContent = info;
+  }
+
+  // lights: 1 = the seeker, 2 = seeker + second light, 'merge' = two orbits becoming one flame
+  const fr = S*(0.05 + 0.03*pulse)*tune.glow, L = sec.lights;
+  let fx = 0, fy = 0; if (sceneName === 'slope') { fx = ((t*0.05) % 1)*2.2 - 1.1; fy = -0.45*fx; }
+  if (L === 'merge') {
+    const m = Math.min(1, p*4), d = 0.35*(1 - m), a = t*1.2;
+    if (m < 1) { glow(cx + Math.cos(a)*d*S, cy + Math.sin(a)*d*S, fr, 'rgba(255,170,90,.9)'); glow(cx - Math.cos(a)*d*S, cy - Math.sin(a)*d*S, fr, 'rgba(255,170,90,.9)'); }
+    else glow(cx, cy, fr*1.8, 'rgba(255,190,110,.95)');
+  } else if (L) {
+    glow(cx + fx*S, cy + fy*S, fr, 'rgba(255,150,70,.85)');
+    if (L === 2) glow(cx + S*1.25, cy - S*0.2, fr*0.7*(0.6 + 0.4*Math.sin(t*5)), 'rgba(255,150,70,.7)');
+    if (L === 'pair') glow(cx + S*0.12, cy, fr*0.8, 'rgba(255,170,90,.7)');
+  }
+  const fl = ts/1000 - flashT;
+  if (fl >= 0 && fl < 0.6) { ctx.fillStyle = `rgba(255,240,200,${(0.55*(1 - fl/0.6)).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+
+  // overlays: visible in their sections, pulsing with their chosen band
+  for (const o of OV) {
+    const on = !o.off && (OVR.ovAll || (!OVR.blank && (o.sections === 'all' || o.sections.includes(sec.name))));
+    const drive = o.react === 'bass' ? bands.bass : o.react === 'high' ? bands.high : o.react === 'none' ? 0 : bands.kick;
+    const op = on ? Math.min(1, (o.opacity ?? 0.5)*tune.ovOpacity*(0.7 + 0.6*drive*R)) : 0;
+    o.el.style.opacity = op.toFixed(3);
+    if (op > 0) o.el.style.transform = `rotate(${(t*(o.spin || 0)*57.3).toFixed(1)}deg) scale(${((o.scale || 1)*(1 + drive*0.08*R)).toFixed(3)})`;
+  }
+  for (const cb of frameHooks) { try { cb({ t, dt, onset, beat, k, sec, p, playing: hasAudio ? !audio.paused : playing }); } catch (e) { console.error(e); } }
+  requestAnimationFrame(frame);
+}
+
+// ---------------- controller API for ui/pad.js and ui/looks.js ----------------
+const frameHooks = [];
+const MORPH_SKIP = new Set(['count', 'attrPoints', 'renderMax', 'sand', 'kickV']);   // rebuild-heavy: set once, never per frame
+window.LVC = {
+  TUNE_DEF, tuneDefaults: () => tuneDefaults(), get tune() { return tune; }, MORPH_SKIP,
+  setTune(vals, persist = true) {
+    let parts = false, size = false;
+    for (const [k, v] of Object.entries(vals)) { if (tune[k] === v) continue; tune[k] = v; if (k === 'count') parts = true; if (k === 'renderMax') size = true; }
+    if (size) resize(); if (parts || size) makeParticles();
+    if (persist) { store.set(key('tune'), tune); buildSliders(); buildTimeline(); }
+  },
+  saveTune() { store.set(key('tune'), tune); buildSliders(); buildTimeline(); },
+  refreshUI() { buildSliders(); buildTimeline(); },
+  fx: { list: FX_ALL, cats: () => window.VIZ_FX_CATS || [], on: k => fxEffective(now()).has(k), toggle: toggleFx, solo: soloFx, soloKey: () => solo && solo.key,
+        set(k, on) { if (k === 'patchK') { if (on) spawnPatch(); return; } if (!!fxEffective(now()).has(k) !== !!on) toggleFx(k); },
+        setLive(keys) { if (solo) soloFx(solo.key); fxLive = new Set(keys.filter(k => FXBY[k])); fxSig = null; },
+        live: () => [...fxLive], allOff() { if (solo) soloFx(solo.key); fxAllOff(); },
+        auto(on) { if (on == null) return $('fxAuto').checked; $('fxAuto').checked = !!on; store.set(key('fxAuto'), !!on); VizForms.setAuto(!!on); } },
+  ovr: OVR, setOverride(kind, v) { OVR[kind] = v; },
+  style(v) { if (v == null) return fxStyleLive; fxStyleLive = v; $('fxStyle').value = v; store.set(key('fxStyle'), v); },
+  styles: () => (window.VizType ? VizType.styles : []),
+  flash() { flashT = performance.now()/1000; },
+  onFrame(cb) { frameHooks.push(cb); },
+  pack: () => pack, packKey: s => key(s), store, timing: () => timing, now: () => now(), starts: () => starts, songEnd: () => songEnd(),
+  bands, sectionAt: t => sectionAt(t), seek: t => seek(t), togglePlay: () => togglePlay(), isPlaying: () => hasAudio ? !audio.paused : playing,
+  hideUI(on) { $('dock').classList.toggle('hidden', !!on); $('readout').classList.toggle('hidden', !!on); if (on) { $('tune').classList.add('hidden'); $('fx').classList.add('hidden'); } },
+};
+loadPack(store.get('livevis:lastPack', PACKS[0].id));
+$('pack').value = pack.id;
+$('pack').addEventListener('change', () => { store.set('livevis:lastPack', pack.id); window.LVPad && LVPad.packChanged(); });
+updatePlay();
+requestAnimationFrame(frame);
+})();
+</script>
+<script src="ui/looks.generated.js"></script>
+<script src="ui/looks.js"></script>
+<script src="ui/pad.js"></script>
+</body>
+</html>
