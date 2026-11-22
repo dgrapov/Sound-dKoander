@@ -22,7 +22,7 @@ const css = `
 #siteCard .box{width:min(560px,92vw);background:rgba(14,10,28,.92);border:1px solid rgba(255,255,255,.12);border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6)}
 #siteCard img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#07060f}
 #siteCard .in{padding:18px 22px 20px}
-#siteCard h1{margin:0 0 4px;font-weight:300;letter-spacing:.18em;font-size:20px;text-transform:uppercase}
+#siteCard h1{margin:0 0 4px;font-weight:300;letter-spacing:.18em;font-size:20px}
 #siteCard p{margin:6px 0 12px;color:rgba(244,239,230,.75)}
 #siteCard .row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 #siteCard button,#siteCard a.b{all:unset;cursor:pointer;padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06)}

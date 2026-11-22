@@ -1,12 +1,3 @@
-// Shared console panel for the Live Visualizer (2026-11-15, D: "improve the console text render so line length and font can be
-// changed so we can clearly read messages"). Used by mind.log (layers/tybmind.js) and see.log (layers/tybsee.js).
-// TYBConsole.make({ id, title, prefKey, order:0|1, key:'KeyC', button:'▤ mind.log', accent:'#ff2e88', defaults })
-//   → { out(text, cls), show(on), reset(), place(active), visible() }
-// v3.1 (D: "draggable and expandable with simplified controls; start on the left in a column"):
-//   drag the title bar to move · drag the corner to resize (width and height) · double-click the title to put it back
-//   bar: A− A+ text size · ↵ wrap long lines · ▾ collapse to the bar · ✕ hide.  Position and size are remembered.
-//   Consoles start stacked in a column on the left (order 0 under the section title, order 1 below it).
-//   body.tyb-zen hides them (focus view, layers/tybview.js).
 (() => {
 if (window.TYBConsole) return;
 const FONTS = [['mono', 'ui-monospace, Consolas, "Space Mono", monospace'], ['sans', 'system-ui, "Segoe UI", Inter, sans-serif'], ['serif', 'Georgia, "Times New Roman", serif']];
@@ -65,6 +56,34 @@ function hl(src) {
   return h + esc(src.slice(last));
 }
 const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+
+const LK = 'livevis:tyb:layout', MODES = ['dock', 'overlap', 'hidden'];
+const TL = window.TYBLayout = {
+  mode: (() => { try { const m = localStorage.getItem(LK); return MODES.includes(m) ? m : 'dock'; } catch (e) { return 'dock'; } })(),
+  last: 'dock', cur: { l: 0, r: 0 }, btn: null,
+  eff() { return this.mode === 'dock' && (innerWidth < 1100 || this.tooNarrow) ? 'overlap' : this.mode; },
+  set(m) { if (!MODES.includes(m)) return; if (m !== 'hidden') this.last = m; this.mode = m; try { localStorage.setItem(LK, m); } catch (e) {} document.body.classList.toggle('tyb-lay-hidden', m === 'hidden'); this.label(); },
+  next() { this.set(MODES[(MODES.indexOf(this.mode) + 1) % 3]); },
+  label() { if (this.btn) { this.btn.textContent = '▥ ' + this.mode; this.btn.title = 'Panel layout: dock / overlap / hidden (Tab)'; } },
+  button() { if (this.btn) return; const ctl = document.getElementById('controls'); if (!ctl) return; this.btn = document.createElement('button'); this.btn.className = 'tybdock'; this.btn.onclick = () => this.next(); ctl.insertBefore(this.btn, document.getElementById('dockMin') || null); this.label(); },
+  rect() { return { x: this.cur.l, y: 0, w: Math.max(200, innerWidth - this.cur.l - this.cur.r), h: innerHeight }; },
+};
+{ const st = document.createElement('style'); st.textContent = 'body.tyb-lay-hidden .tybc{display:none!important}'; document.head.appendChild(st);
+  document.body && document.body.classList.toggle('tyb-lay-hidden', TL.mode === 'hidden'); addEventListener('DOMContentLoaded', () => document.body.classList.toggle('tyb-lay-hidden', TL.mode === 'hidden'));
+  let t0 = 0;
+  const tick = (ts) => {
+    const dt = Math.min(0.5, (ts - t0) / 1000 || 0.016); t0 = ts;
+    let l = 0, r = 0; TL.tooNarrow = false;
+    if (TL.mode === 'dock' && innerWidth >= 1100) { for (const a of (window.__tybConsoles || [])) { const d = a && a.dockInfo && a.dockInfo(); if (!d) continue; if (d.side === 'right') r = Math.max(r, d.w + 24); else l = Math.max(l, d.w + 24); }
+      if (innerWidth - l - r < 520) { TL.tooNarrow = true; l = r = 0; } }
+    const k = 1 - Math.exp(-dt / 0.1); TL.cur.l += (l - TL.cur.l) * k; TL.cur.r += (r - TL.cur.r) * k; if (Math.abs(TL.cur.l - l) < 0.4) TL.cur.l = l; if (Math.abs(TL.cur.r - r) < 0.4) TL.cur.r = r;
+    const R_ = TL.rect(), de = document.documentElement.style; de.setProperty('--stcx', (R_.x + R_.w / 2).toFixed(1) + 'px'); de.setProperty('--stw', R_.w.toFixed(1) + 'px'); de.setProperty('--strr', TL.cur.r.toFixed(1) + 'px');
+    window.TYBStage = R_; requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  addEventListener('keydown', (e) => { if (e.code !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || /INPUT|TEXTAREA|SELECT|BUTTON/.test((e.target && e.target.tagName) || '')) return;
+    const C = window.LVC; if (!C || !C.pack() || !(window.__tybConsoles || []).length) return; TL.next(); e.preventDefault(); e.stopImmediatePropagation(); }, true);
+}
 window.TYBConsole = {
   make(o) {
     const D = Object.assign({ console: true, cw: 460, ch: 260, cf: 12, wrap: true, font: 0, bg: 0.72, x: null, y: null, col: false, anchor: 'left' }, o.defaults || {});
@@ -77,21 +96,19 @@ window.TYBConsole = {
       el.style.setProperty('--acc', o.accent); el.style.setProperty('--acc33', hexA(o.accent, .33)); el.style.setProperty('--acc1f', hexA(o.accent, .12)); el.style.setProperty('--acc10', hexA(o.accent, .08));
       el.innerHTML = `<div class="bar"><span>${esc(o.title)}</span><span class="tools">
         <button data-g="f-" title="Smaller text">A−</button><button data-g="f+" title="Larger text">A+</button><button data-g="wrap" title="Wrap long lines">↵</button>
-        <button data-g="col" title="Collapse / expand">▾</button><button data-g="x" title="Hide">✕</button></span></div><div class="body"></div><div class="grip" title="Drag to resize"></div>`;
+        <button data-g="pin" title="Pinned: sits in the side column and the stage makes room. Click to float it over the picture.">⌖</button><button data-g="col" title="Collapse / expand">▾</button><button data-g="x" title="Hide">✕</button></span></div><div class="body"></div><div class="grip" title="Drag to resize"></div>`;
       body = el.querySelector('.body');
       el.querySelector('.tools').addEventListener('click', (e) => { const g = e.target.dataset && e.target.dataset.g; if (!g) return; e.stopPropagation();
         if (g === 'x') return api.show(false);
-        if (g === 'wrap') P.wrap = !P.wrap; else if (g === 'col') P.col = !P.col; else P.cf += g[1] === '+' ? 1 : -1;
+        if (g === 'pin') P.pin = P.pin === false; else if (g === 'wrap') P.wrap = !P.wrap; else if (g === 'col') P.col = !P.col; else P.cf += g[1] === '+' ? 1 : -1;
         style(); save(); });
-      // drag by the bar
       const bar = el.querySelector('.bar');
       bar.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; e.preventDefault(); bar.setPointerCapture(e.pointerId); bar.style.cursor = 'grabbing';
         const r = el.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
-        const move = (ev) => { P.x = Math.max(0, Math.min(innerWidth - 80, ev.clientX - ox)); P.y = Math.max(0, Math.min(innerHeight - 30, ev.clientY - oy)); style(); };
+        const move = (ev) => { if (P.pin !== false && TL.eff() === 'dock') P.pin = false; P.x = Math.max(0, Math.min(innerWidth - 80, ev.clientX - ox)); P.y = Math.max(0, Math.min(innerHeight - 30, ev.clientY - oy)); style(); };
         const up = () => { bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); bar.style.cursor = ''; save(); };
         bar.addEventListener('pointermove', move); bar.addEventListener('pointerup', up); });
-      bar.addEventListener('dblclick', () => { P.x = null; P.y = null; style(); save(); });
-      // resize from the corner: width and height
+      bar.addEventListener('dblclick', () => { P.x = null; P.y = null; P.pin = true; style(); save(); });
       const grip = el.querySelector('.grip');
       grip.addEventListener('pointerdown', (e) => { e.preventDefault(); grip.setPointerCapture(e.pointerId); const r = el.getBoundingClientRect();
         const move = (ev) => { P.cw = ev.clientX - r.left; P.ch = ev.clientY - r.top - 30; style(); };
@@ -99,7 +116,7 @@ window.TYBConsole = {
         grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up); });
       const ctl = document.getElementById('controls');
       if (ctl && o.button) { dock = document.createElement('button'); dock.className = 'tybdock'; dock.textContent = o.button; dock.title = `Show / hide ${o.title} (${o.key ? o.key.replace('Key', '') : ''})`;
-        dock.onclick = () => api.show(!P.console); ctl.insertBefore(dock, document.getElementById('dockMin') || null); }
+        dock.onclick = () => { if (TL.mode === 'hidden') { TL.set(TL.last); api.show(true); } else api.show(!P.console); }; ctl.insertBefore(dock, document.getElementById('dockMin') || null); }
       document.body.appendChild(el); style(); addEventListener('resize', style);
     }
     function style() {
@@ -110,15 +127,17 @@ window.TYBConsole = {
       el.classList.toggle('wrap', !!P.wrap); el.classList.toggle('cut', !P.wrap); el.classList.toggle('col', !!P.col);
       body.style.height = P.ch + 'px';
       for (const b of el.querySelectorAll('[data-g=wrap]')) b.classList.toggle('on', !!P.wrap);
+      for (const b of el.querySelectorAll('[data-g=pin]')) b.classList.toggle('on', P.pin !== false);
       for (const b of el.querySelectorAll('[data-g=col]')) b.textContent = P.col ? '▸' : '▾';
       position(); draw();
     }
     function position() {
       if (!el) return;
-      if (P.x != null) { el.style.left = P.x + 'px'; el.style.top = P.y + 'px'; el.style.right = 'auto'; el._top = null; return; }
+      if (P.x != null && !(P.pin !== false && TL.eff() === 'dock')) { el.style.left = P.x + 'px'; el.style.top = P.y + 'px'; el.style.right = 'auto'; el._top = null; return; }
       if (P.anchor === 'right') { const mt = document.getElementById('meters'), mr = mt && mt.getBoundingClientRect(), mv = mr && mr.height > 0 && getComputedStyle(mt).display !== 'none';
-        const top = mv ? Math.round(mr.bottom + 10) : 16; el.style.left = 'auto'; el.style.right = '16px'; if (el._top !== top) { el._top = top; el.style.top = top + 'px'; } return; }
-      // default: a column on the left, under the section title; order 1 sits under order 0
+        let top = mv ? Math.round(mr.bottom + 10) : 16;
+        if (o.order) { const prev = (window.__tybConsoles || []).slice(0, o.order).reverse().find((c) => c && c.right && c.right() && c.el() && c.el().style.display !== 'none' && c.el().getBoundingClientRect().height); if (prev) top = Math.round(prev.el().getBoundingClientRect().bottom + 10); }
+        el.style.left = 'auto'; el.style.right = '16px'; el._top = top; el.style.top = top + 'px'; return; }
       const hud = document.getElementById('hud'), r = hud && hud.getBoundingClientRect(), hv = r && r.height > 0 && getComputedStyle(hud).display !== 'none' && !document.body.classList.contains('tyb-zen');
       let top = hv ? Math.round(r.bottom + 10) : 16;
       if (o.order) { const above = (window.__tybConsoles || [])[o.order - 1]; const ae = above && above.el(); if (ae && ae.style.display !== 'none') { const ar = ae.getBoundingClientRect(); if (ar.height) top = Math.round(ar.bottom + 10); } }
@@ -134,11 +153,12 @@ window.TYBConsole = {
       reset() { lines = []; draw(); },
       show(on) { P.console = !!on; save(); build(); el.style.display = on ? '' : 'none'; if (dock) dock.classList.toggle('on', !!on); },
       visible: () => P.console,
+      right: () => P.anchor === 'right' && P.x == null,
+      dockInfo() { if (!el || !P.console || el.style.display === 'none' || P.pin === false || TL.eff() !== 'dock') return null; return { side: P.anchor === 'right' ? 'right' : 'left', w: Math.min(P.cw, innerWidth * 0.3) }; },
       el: () => el,
-      // called every frame by the owner: keeps it placed (under the HUD on the left, under the meters on the right) and shown
       place(active) {
         if (!active) { if (el) el.style.display = 'none'; if (dock) dock.style.display = 'none'; return; }
-        build(); el.style.display = P.console ? '' : 'none'; if (dock) { dock.style.display = ''; dock.classList.toggle('on', P.console); }
+        build(); el.style.display = P.console ? '' : 'none'; TL.button(); if (dock) { dock.style.display = ''; dock.classList.toggle('on', P.console); }
         position();
       },
     };
@@ -146,7 +166,7 @@ window.TYBConsole = {
       const C = window.LVC; if (!C || !C.pack() || C.pack().id !== o.pack) return;
       if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
       if (window.LVPad && LVPad.state && LVPad.state.open) return;
-      if (e.code === o.key) { api.show(!P.console); e.stopImmediatePropagation(); e.preventDefault(); }
+      if (e.code === o.key) { if (TL.mode === 'hidden') { TL.set(TL.last); api.show(true); } else api.show(!P.console); e.stopImmediatePropagation(); e.preventDefault(); }
     }, true);
     (window.__tybConsoles = window.__tybConsoles || [])[o.order || 0] = api;
     return api;

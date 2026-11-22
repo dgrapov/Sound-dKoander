@@ -39,6 +39,24 @@ While it plays, the AI that helped make it shows three of its own logs:
 </tr>
 </table>
 
+<table>
+<tr>
+<td width="50%"><a href="https://dgrapov.github.io/Sound-dKoander/?song=waited-zeta-stranger"><img src="songs/waited-zeta-stranger/cover.jpg" alt="ζ-birth: a moon of sand on the nodal lines, reflected in a pond of sprites and sound rings"></a><br><sub>▶ Click to play it live.</sub></td>
+<td>
+
+### ζ-birth
+*Pull up a stool. There was a line in the dark that nobody had seen.*
+
+A tavern song about a line that was always there, and a question that doesn't end. The picture quotes the mathematics and proves nothing: horocycle rings, sand gathering on the nodal lines, sprites that leave trails and send out sound rings, glinting where the rings cross.
+
+The same three logs run beside it: 👁 **see.log**, 🧠 **mind.log**, ✦ **meta.log**.
+
+[**▶ Play it live**](https://dgrapov.github.io/Sound-dKoander/?song=waited-zeta-stranger)
+
+</td>
+</tr>
+</table>
+
 ### More from the channel
 <table>
 <tr>
