@@ -13,6 +13,7 @@ window.SITE_SONGS = [
   "id": "waited-zeta-stranger",
   "title": "ζ-birth",
   "blurb": "A tavern song about a line that was always there. A disk of horocycle rings, sand on the nodal lines, sprites with sonar rings; three consoles show what the AI saw, did and meant.",
+  "youtube": "https://youtu.be/6hhXJYFLei0",
   "cover": "songs/waited-zeta-stranger/cover.jpg",
   "audio": null
  }

@@ -6,12 +6,12 @@
 
 <p align="center">
   <a href="https://dgrapov.github.io/Sound-dKoander/"><b>▶ Play</b></a> &nbsp;·&nbsp;
-  <a href="https://www.youtube.com/@dKoan-hashimoto"><b>YouTube</b></a>
+  <a href="https://www.youtube.com/channel/UCIPbsIE5D74_H2AwAKSbU7w"><b>YouTube</b></a>
 </p>
 
 ---
 
-A live, audio-reactive visualizer from the dKōan experiments, where a person and an AI make songs together. It is an experiment, and the AI says what it did and why. The road
+A live, audio-reactive visualizer from the dKoan experiments, where a person and an AI make songs together. It is an experiment, and the AI says what it did and why. The road
 is the song's own spectrogram, and the shapes follow what the song actually does: struck or held, which key, where
 the drums fall away. The lyrics arrive on the words as they're sung. Everything is drawn live in your browser, and
 nothing is pre-rendered.
@@ -55,7 +55,7 @@ Four logs run beside it: 👁 **see.log**, 🧠 **mind.log**, ✦ **meta.log**, 
 
 **This is an experiment.** A person and an AI made it together to see what happens when the AI also says, out loud, what it did and why. These are the AI's readings and choices. The picture quotes mathematics and proves nothing, and the Lean proof the song takes as given has not been checked by the AI.
 
-[**▶ Play it live**](https://dgrapov.github.io/Sound-dKoander/?song=waited-zeta-stranger)
+[**▶ Watch on YouTube**](https://youtu.be/6hhXJYFLei0) &nbsp;·&nbsp; [**▶ Play it live**](https://dgrapov.github.io/Sound-dKoander/?song=waited-zeta-stranger)
 
 </td>
 </tr>
@@ -65,11 +65,14 @@ Four logs run beside it: 👁 **see.log**, 🧠 **mind.log**, ✦ **meta.log**, 
 <table>
 <tr>
 <td width="50%" valign="top"><a href="https://youtu.be/nQzvg4u1_Mk"><img src="https://img.youtube.com/vi/nQzvg4u1_Mk/hqdefault.jpg" alt="Global Optimization Daemon"></a><br><b><a href="https://youtu.be/nQzvg4u1_Mk">Global Optimization Daemon</a></b><br><sub>▶ Watch on YouTube</sub></td>
+<td width="50%" valign="top"><a href="https://youtu.be/NshCkotwaU0"><img src="https://img.youtube.com/vi/NshCkotwaU0/hqdefault.jpg" alt="zeta defrag, visuals only"></a><br><b><a href="https://youtu.be/NshCkotwaU0">zeta defrag (visuals only)</a></b><br><sub>▶ Watch on YouTube · a mind defragmenting, drawn as standing waves, with the AI's own logs in the description</sub></td>
+</tr>
+<tr>
 <td width="50%" valign="top"><a href="https://youtu.be/j3Z7KVrXc28"><img src="https://img.youtube.com/vi/j3Z7KVrXc28/hqdefault.jpg" alt="Entroplexity"></a><br><b><a href="https://youtu.be/j3Z7KVrXc28">Entroplexity</a></b><br><sub>▶ Watch on YouTube</sub></td>
 </tr>
 </table>
 
-All songs: [**dKōan on YouTube**](https://www.youtube.com/@dKoan-hashimoto)
+All songs: [**dKoan on YouTube**](https://www.youtube.com/channel/UCIPbsIE5D74_H2AwAKSbU7w)
 
 ## In the player
 
@@ -91,4 +94,4 @@ Download the repo and open `index.html` in Chrome, Edge or Firefox.
 ## License
 The code is MIT ([LICENSE](LICENSE)). Songs, lyrics, cover art and console texts belong to the artist.
 
-<p align="center"><sub>dKōan Hashimoto · digital kōans · deconstruction & emergence</sub></p>
+<p align="center"><sub>dKoan Hashimoto · digital kōans · deconstruction & emergence</sub></p>
