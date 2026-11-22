@@ -11,7 +11,7 @@
 
 ---
 
-A live, audio-reactive visualizer from the dKōan experiments, where a person and an AI make songs together. The road
+A live, audio-reactive visualizer from the dKōan experiments, where a person and an AI make songs together. It is an experiment, and the AI says what it did and why. The road
 is the song's own spectrogram, and the shapes follow what the song actually does: struck or held, which key, where
 the drums fall away. The lyrics arrive on the words as they're sung. Everything is drawn live in your browser, and
 nothing is pre-rendered.
@@ -49,7 +49,11 @@ While it plays, the AI that helped make it shows three of its own logs:
 
 A tavern song about a line that was always there, and a question that doesn't end. The picture quotes the mathematics and proves nothing: horocycle rings, sand gathering on the nodal lines, sprites that leave trails and send out sound rings, glinting where the rings cross.
 
-The same three logs run beside it: 👁 **see.log**, 🧠 **mind.log**, ✦ **meta.log**.
+Four logs run beside it: 👁 **see.log**, 🧠 **mind.log**, ✦ **meta.log**, and ◎ **zero.log**, where the AI judges each zero the picture or the music meets.
+
+**The concept, and ideas the AI added.** The line the song is about is the critical line, drawn as the vertical axis of the disk. Past travellers lay a pattern on the left; the next ones arrive from the right as mirror images across the line (the functional equation). A chain of overlapping discs stands for analytic continuation. On the pulse of the music the disk swings about the line; in the bridge it turns edge-on and fourteen rungs, one for each of the first fourteen zeros, rush toward the dot that never moves. In the climax the rings give way to a coordinate grid that bends around the red traveller but keeps every crossing square. In the final chorus the two halves lie flat and agree.
+
+**This is an experiment.** A person and an AI made it together to see what happens when the AI also says, out loud, what it did and why. These are the AI's readings and choices. The picture quotes mathematics and proves nothing, and the Lean proof the song takes as given has not been checked by the AI.
 
 [**▶ Play it live**](https://dgrapov.github.io/Sound-dKoander/?song=waited-zeta-stranger)
 
@@ -74,7 +78,8 @@ All songs: [**dKōan on YouTube**](https://www.youtube.com/@dKoan-hashimoto)
 | `Space` | play / pause |
 | `Z` | visuals only (`Esc` brings everything back) |
 | `L` | where the lyrics sit |
-| `C` `V` `N` | the three consoles |
+| `C` `V` `N` `X` | the four consoles (mind, see, meta, zero) |
+| `Tab` | panel layout: dock, overlap, hidden |
 | `F` | fullscreen |
 | `T` · `E` · `P` | tune · effects · pad |
 
